@@ -45,7 +45,7 @@ allows browser CORS requests only from the generated frontend origin.
 7. Verify `/api/health` and the frontend root.
 
 Every run receives a cryptographically random identifier. The matching
-`infra/destroy.sh` command deletes only that generated stack and preserves the
+`infra/destroy.ps1` command deletes only that generated stack and preserves the
 resource group and other workshop environments.
 
 ## Accepted workshop boundaries
@@ -89,7 +89,7 @@ Validated on 2026-09-22 before deployment approval:
 
 | Command | Result |
 | --- | --- |
-| `./infra/validate.sh --resource-group <resource-group-name>` | PASS: CLI, authentication, Bicep build, and resource-group what-if |
+| `pwsh ./infra/validate.ps1 -ResourceGroup <resource-group-name>` | PASS: CLI, authentication, Bicep build, and resource-group what-if |
 | `scaffold-conformance.sh ... infra` | PASS: `{"passed":true,"failures":[]}` |
 | `cd src/backend && .venv/bin/python -m pytest -q` | PASS: 8 tests; one upstream deprecation warning |
 | `npm run build --prefix src/frontend` | PASS: TypeScript and Vite production build |

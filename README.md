@@ -70,23 +70,28 @@ docs/         Reserved for workshop part files supplied separately
 
 ## Local development
 
-Prerequisites are Python 3.13 and Node.js 22 or newer.
+Prerequisites are PowerShell 7, Python 3.13, and Node.js 22 or newer.
 
 Start the API:
 
-```bash
-cd src/backend
-python3.13 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements-dev.txt
-FRONTEND_ORIGIN=http://localhost:5173 \
-  uvicorn app.main:app --host 127.0.0.1 --port 5050 --no-access-log
+```powershell
+Set-Location src/backend
+$systemPython = if ($IsWindows) { 'python' } else { 'python3.13' }
+& $systemPython -m venv .venv
+$venvPython = if ($IsWindows) {
+  '.\.venv\Scripts\python.exe'
+} else {
+  './.venv/bin/python'
+}
+& $venvPython -m pip install -r requirements-dev.txt
+$env:FRONTEND_ORIGIN = 'http://localhost:5173'
+& $venvPython -m uvicorn app.main:app --host 127.0.0.1 --port 5050 --no-access-log
 ```
 
 In another terminal, start Vite:
 
-```bash
-cd src/frontend
+```powershell
+Set-Location src/frontend
 npm ci
 npm run dev
 ```
@@ -97,11 +102,16 @@ Open `http://localhost:5173`. Vite proxies `/api` to
 
 ## Tests and validation
 
-```bash
-cd src/backend
-python -m pytest -q
+```powershell
+Set-Location src/backend
+$venvPython = if ($IsWindows) {
+  '.\.venv\Scripts\python.exe'
+} else {
+  './.venv/bin/python'
+}
+& $venvPython -m pytest -q
 
-cd ../frontend
+Set-Location ../frontend
 npm run typecheck
 npm run build
 ```
@@ -140,12 +150,12 @@ Article list supports `search`. Errors use a stable shape:
 
 Build from the repository root:
 
-```bash
+```powershell
 docker build -f src/backend/Dockerfile -t support-desk-api src/backend
-docker run --rm -p 8080:8080 \
-  -e FRONTEND_ORIGIN=http://localhost:5173 \
+docker run --rm -p 8080:8080 `
+  -e FRONTEND_ORIGIN=http://localhost:5173 `
   support-desk-api
-curl http://localhost:8080/api/health
+Invoke-RestMethod -Uri http://localhost:8080/api/health
 ```
 
 The production image runs as a non-root user, disables access logs, listens on
@@ -169,20 +179,20 @@ deployment scripts set it from the generated App Service URL.
 
 Validate the deployment without creating resources:
 
-```bash
-./infra/validate.sh \
-  --resource-group '<resource-group-name>'
+```powershell
+pwsh ./infra/validate.ps1 `
+  -ResourceGroup '<resource-group-name>'
 ```
 
 Create and deploy a fresh workshop environment:
 
-```bash
-./infra/deploy.sh \
-  --resource-group '<resource-group-name>'
+```powershell
+pwsh ./infra/deploy.ps1 `
+  -ResourceGroup '<resource-group-name>'
 ```
 
 The deployment prints the frontend and backend URLs plus a targeted
-`infra/destroy.sh` command. That command removes only the generated deployment
+`infra/destroy.ps1` command. That command removes only the generated deployment
 stack; it does not delete the shared resource group.
 
 By default, each deployment creates an App Service plan and frontend app, a
@@ -208,6 +218,11 @@ application, and either workflow can be run manually from `main`. Validation
 runs cancel obsolete work for the same branch. Azure deployment jobs use a
 fixed component-specific concurrency group and never cancel an in-progress
 deployment, preventing two runs from racing to update the same resource.
+
+Workshop participants fork this repository and configure the workflows in
+their own fork. This keeps each participant's GitHub OIDC trust, variables, and
+Azure deployment target isolated from the source repository and other
+participants.
 
 ### Configure the deployment environments
 
@@ -246,9 +261,9 @@ credential to each deployment identity with:
 - Issuer: `https://token.actions.githubusercontent.com`
 - Audience: `api://AzureADTokenExchange`
 - Backend subject:
-  `repo:jasonfarrell-msft/ws-ai-sdlc:environment:workshop-backend`
+  `repo:<fork-owner>/ws-ai-sdlc:environment:workshop-backend`
 - Frontend subject:
-  `repo:jasonfarrell-msft/ws-ai-sdlc:environment:workshop-frontend`
+  `repo:<fork-owner>/ws-ai-sdlc:environment:workshop-frontend`
 
 Under **Deployment branches and tags**, choose **Selected branches and tags**
 and add only `main` for both environments. The workflows also enforce
@@ -271,8 +286,10 @@ only to deployment jobs. Frontend dependencies are installed and production
 assets are packaged in a separate job that cannot request an OIDC token.
 
 Section 2 of [`docs/setup.md`](docs/setup.md) uses
-`infra/configure-github-actions.sh` to create the identities, federated
-credentials, role assignments, environments, and variables.
+`infra/configure-github-actions.ps1` to create the identities, federated
+credentials, role assignments, environments, and variables in the
+participant's verified fork. The script also enables both workflows in that
+fork, including repository-level GitHub Actions when the fork is new.
 
 ## Ephemeral reset behavior
 

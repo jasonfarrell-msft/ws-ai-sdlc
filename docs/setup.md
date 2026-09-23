@@ -40,8 +40,7 @@ keeps one workshop deployment separate from another.
 
 ## Prerequisites
 
-Complete these steps from a Bash-compatible terminal on macOS, Linux, or
-Windows Subsystem for Linux.
+Complete these steps from a PowerShell 7 terminal on Windows, macOS, or Linux.
 
 You need:
 
@@ -51,39 +50,89 @@ You need:
 - Azure CLI 2.48.1 or newer
 - The Azure CLI Bicep component
 - Git
+- GitHub CLI
+- A GitHub account that can create a personal fork
+- PowerShell 7
 - Node.js 22 or newer and npm 10.9 or newer
-- `zip`, `curl`, and `openssl`
 
 The deployment uses Microsoft Entra authentication. It does not require an ACR
 admin password or App Service publishing credentials.
 
-## 1. Clone the repository
+## 1. Fork and clone the repository
 
-Open a terminal and clone the workshop repository:
+Sign in to GitHub CLI:
 
-```bash
-git clone https://github.com/jasonfarrell-msft/ws-ai-sdlc.git
-cd ws-ai-sdlc
+```powershell
+gh auth login
+gh auth status
 ```
+
+Create a personal fork and clone it:
+
+```powershell
+gh repo fork jasonfarrell-msft/ws-ai-sdlc `
+  --clone `
+  --default-branch-only
+Set-Location ws-ai-sdlc
+```
+
+GitHub CLI configures your fork as `origin` and the workshop source repository
+as `upstream`.
+
+Make your fork the default repository for GitHub CLI and record its
+`owner/repository` value:
+
+```powershell
+gh repo set-default origin
+
+$GITHUB_REPOSITORY = gh repo view `
+  --json nameWithOwner `
+  --jq .nameWithOwner
+Write-Host $GITHUB_REPOSITORY
+```
+
+Confirm the repository is your fork and both remotes are present:
+
+```powershell
+gh repo view `
+  $GITHUB_REPOSITORY `
+  --json nameWithOwner,isFork,parent `
+  --jq '{
+    repository:.nameWithOwner,
+    isFork:.isFork,
+    upstream:.parent.nameWithOwner
+  }'
+
+git remote -v
+```
+
+Confirm that `isFork` is `true`, `upstream` is
+`jasonfarrell-msft/ws-ai-sdlc`, `origin` points to your fork, and `upstream`
+points to the workshop source repository.
+
+If you already created and cloned the fork, do not run the fork command again.
+Change to the existing `ws-ai-sdlc` directory and continue with
+`gh repo set-default origin`.
 
 ## 2. Check the required tools
 
 Run:
 
-```bash
+```powershell
 git --version
+gh --version
+pwsh --version
 az version --query '"azure-cli"' --output tsv
 az bicep version
 node --version
 npm --version
-zip --version
-curl --version
-openssl version
 ```
 
 Confirm that:
 
 - Git is installed.
+- GitHub CLI is installed.
+- PowerShell is version 7 or newer.
 - Azure CLI is version 2.48.1 or newer.
 - Node.js is version 22 or newer.
 - npm is version 10.9 or newer.
@@ -94,22 +143,22 @@ Confirm that:
 
 Sign in:
 
-```bash
+```powershell
 az login
 ```
 
 If necessary, select the subscription that contains your lab resource group:
 
-```bash
-az account set \
+```powershell
+az account set `
   --subscription '<subscription-id>'
 ```
 
 Confirm the active subscription:
 
-```bash
-az account show \
-  --query '{name:name,id:id,user:user.name}' \
+```powershell
+az account show `
+  --query '{name:name,id:id,user:user.name}' `
   --output table
 ```
 
@@ -117,16 +166,16 @@ az account show \
 
 Set the name of an existing resource group:
 
-```bash
-RESOURCE_GROUP='<resource-group-name>'
+```powershell
+$RESOURCE_GROUP = '<resource-group-name>'
 ```
 
 Confirm that it exists in the active subscription:
 
-```bash
-az group show \
-  --name "$RESOURCE_GROUP" \
-  --query '{name:name,location:location}' \
+```powershell
+az group show `
+  --name $RESOURCE_GROUP `
+  --query '{name:name,location:location}' `
   --output table
 ```
 
@@ -142,9 +191,9 @@ provide a separate location parameter.
 
 From the repository root, run:
 
-```bash
-./infra/validate.sh \
-  --resource-group "$RESOURCE_GROUP"
+```powershell
+pwsh ./infra/validate.ps1 `
+  -ResourceGroup $RESOURCE_GROUP
 ```
 
 The validation script:
@@ -172,9 +221,9 @@ Azure validation accepts this registered API version.
 
 Run:
 
-```bash
-./infra/deploy.sh \
-  --resource-group "$RESOURCE_GROUP"
+```powershell
+pwsh ./infra/deploy.ps1 `
+  -ResourceGroup $RESOURCE_GROUP
 ```
 
 The deployment usually takes 10-20 minutes. The script:
@@ -194,13 +243,13 @@ Do not close the terminal while the script is running.
 ### If deployment stops before completion
 
 The infrastructure may already exist if the script fails during the image
-build, frontend build, or endpoint checks. Before running `deploy.sh` again,
+build, frontend build, or endpoint checks. Before running `deploy.ps1` again,
 list the deployment stacks:
 
-```bash
-az stack group list \
-  --resource-group "$RESOURCE_GROUP" \
-  --query '[].{name:name,state:provisioningState}' \
+```powershell
+az stack group list `
+  --resource-group $RESOURCE_GROUP `
+  --query '[].{name:name,state:provisioningState}' `
   --output table
 ```
 
@@ -254,9 +303,8 @@ Confirm that:
 
 Next, append `/api/health` to the backend URL or run:
 
-```bash
-curl --fail --silent --show-error \
-  '<backend-url>/api/health'
+```powershell
+Invoke-RestMethod -Uri '<backend-url>/api/health'
 ```
 
 Expected response:
@@ -267,17 +315,17 @@ Expected response:
 
 Finally, confirm that Azure reports both application resources as healthy:
 
-```bash
-az webapp show \
-  --resource-group "$RESOURCE_GROUP" \
-  --name '<frontend-app-name>' \
-  --query '{state:state,httpsOnly:httpsOnly}' \
+```powershell
+az webapp show `
+  --resource-group $RESOURCE_GROUP `
+  --name '<frontend-app-name>' `
+  --query '{state:state,httpsOnly:httpsOnly}' `
   --output table
 
-az containerapp show \
-  --resource-group "$RESOURCE_GROUP" \
-  --name '<container-app-name>' \
-  --query '{state:properties.provisioningState,fqdn:properties.configuration.ingress.fqdn}' \
+az containerapp show `
+  --resource-group $RESOURCE_GROUP `
+  --name '<container-app-name>' `
+  --query '{state:properties.provisioningState,fqdn:properties.configuration.ingress.fqdn}' `
   --output table
 ```
 
@@ -305,55 +353,63 @@ The setup uses GitHub OIDC and Azure managed identities. It does not create or
 store an Azure client secret, registry password, or App Service publishing
 credential.
 
-> [!IMPORTANT]
-> These settings belong to the shared `jasonfarrell-msft/ws-ai-sdlc`
-> repository. Run this section only when you are authorized to set its current
-> workshop deployment target.
-
 ## Prerequisites
 
 Before continuing:
 
 - Complete Section 1 and keep its recorded deployment values.
-- Use a Bash-compatible terminal.
-- Install GitHub CLI.
-- Have administrator access to `jasonfarrell-msft/ws-ai-sdlc`.
+- Use a PowerShell 7 terminal.
+- Use the personal fork created and cloned in Section 1.
 - Have permission to create managed identities and role assignments at the
   three Azure resource scopes.
-- Confirm the backend and frontend workflow files are on `main`.
+- Confirm the backend and frontend workflow files are on your fork's `main`
+  branch.
 
 ## 1. Check the required access
 
 Confirm that Azure CLI is signed in to the subscription used in Section 1:
 
-```bash
-az account show \
-  --query '{subscription:name,id:id,user:user.name}' \
+```powershell
+az account show `
+  --query '{subscription:name,id:id,user:user.name}' `
   --output table
 ```
 
-Sign in to GitHub CLI and confirm repository administrator access:
+Confirm GitHub CLI is signed in and that the current repository is your fork:
 
-```bash
-gh auth login
+```powershell
 gh auth status
-gh api repos/jasonfarrell-msft/ws-ai-sdlc \
-  --jq '{repository:.full_name,admin:.permissions.admin}'
+gh repo set-default origin
+
+$GITHUB_REPOSITORY = gh repo view `
+  --json nameWithOwner `
+  --jq .nameWithOwner
+
+gh repo view `
+  $GITHUB_REPOSITORY `
+  --json nameWithOwner,isFork,viewerCanAdminister,parent `
+  --jq '{
+    repository:.nameWithOwner,
+    isFork:.isFork,
+    admin:.viewerCanAdminister,
+    upstream:.parent.nameWithOwner
+  }'
 ```
 
-The GitHub command must show `"admin": true`.
+The GitHub command must show `isFork: true`, `admin: true`, and upstream
+`jasonfarrell-msft/ws-ai-sdlc`.
 
 ## 2. Set the Section 1 deployment values
 
-Use the values printed by `infra/deploy.sh`:
+Use the values printed by `infra/deploy.ps1`:
 
-```bash
-RESOURCE_GROUP='<resource-group-name>'
-RUN_IDENTIFIER='<18-character-run-identifier>'
-AZURE_CONTAINER_REGISTRY='<registry-name>'
-AZURE_CONTAINER_APP='<container-app-name>'
-AZURE_APP_SERVICE='<frontend-app-name>'
-AZURE_BACKEND_URL='https://<backend-app>.<environment>.azurecontainerapps.io'
+```powershell
+$RESOURCE_GROUP = '<resource-group-name>'
+$RUN_IDENTIFIER = '<18-character-run-identifier>'
+$AZURE_CONTAINER_REGISTRY = '<registry-name>'
+$AZURE_CONTAINER_APP = '<container-app-name>'
+$AZURE_APP_SERVICE = '<frontend-app-name>'
+$AZURE_BACKEND_URL = 'https://<backend-app>.<environment>.azurecontainerapps.io'
 ```
 
 The backend URL must use HTTPS and must not end with `/`.
@@ -362,14 +418,15 @@ The backend URL must use HTTPS and must not end with `/`.
 
 Run the setup script from the repository root:
 
-```bash
-./infra/configure-github-actions.sh \
-  --resource-group "$RESOURCE_GROUP" \
-  --environment-name "$RUN_IDENTIFIER" \
-  --container-registry "$AZURE_CONTAINER_REGISTRY" \
-  --container-app "$AZURE_CONTAINER_APP" \
-  --app-service "$AZURE_APP_SERVICE" \
-  --backend-url "$AZURE_BACKEND_URL"
+```powershell
+pwsh ./infra/configure-github-actions.ps1 `
+  -ResourceGroup $RESOURCE_GROUP `
+  -EnvironmentName $RUN_IDENTIFIER `
+  -ContainerRegistry $AZURE_CONTAINER_REGISTRY `
+  -ContainerApp $AZURE_CONTAINER_APP `
+  -AppService $AZURE_APP_SERVICE `
+  -BackendUrl $AZURE_BACKEND_URL `
+  -Repository $GITHUB_REPOSITORY
 ```
 
 The script creates and configures:
@@ -384,6 +441,9 @@ The script creates and configures:
 | `AZURE_BACKEND_URL` repository variable | Configures the frontend production build |
 | `main` environment branch policies | Prevent non-`main` deployment jobs from using either identity |
 
+The script also verifies that the target is your fork of the workshop
+repository, enables GitHub Actions for the fork, and enables both workflows.
+
 No manual deployment approval is configured. The path-filtered workflows deploy
 automatically after a matching change reaches `main`.
 
@@ -393,9 +453,9 @@ The script is safe to run again with the same values if setup is interrupted.
 
 Confirm the backend environment variables:
 
-```bash
-gh variable list \
-  --repo jasonfarrell-msft/ws-ai-sdlc \
+```powershell
+gh variable list `
+  --repo $GITHUB_REPOSITORY `
   --env workshop-backend
 ```
 
@@ -412,9 +472,9 @@ AZURE_CONTAINER_APP
 
 Confirm the frontend environment variables:
 
-```bash
-gh variable list \
-  --repo jasonfarrell-msft/ws-ai-sdlc \
+```powershell
+gh variable list `
+  --repo $GITHUB_REPOSITORY `
   --env workshop-frontend
 ```
 
@@ -430,46 +490,53 @@ AZURE_APP_SERVICE
 
 Confirm the repository variable:
 
-```bash
-gh variable list \
-  --repo jasonfarrell-msft/ws-ai-sdlc |
-  grep '^AZURE_BACKEND_URL'
+```powershell
+gh variable list `
+  --repo $GITHUB_REPOSITORY |
+  Select-String '^AZURE_BACKEND_URL'
 ```
 
 Confirm that both environments allow only `main`:
 
-```bash
-for environment_name in workshop-backend workshop-frontend
-do
-  gh api \
-    "repos/jasonfarrell-msft/ws-ai-sdlc/environments/${environment_name}/deployment-branch-policies" \
+```powershell
+foreach ($environmentName in 'workshop-backend', 'workshop-frontend') {
+  gh api `
+    "repos/$GITHUB_REPOSITORY/environments/$environmentName/deployment-branch-policies" `
     --jq '.branch_policies[] | {name:name,type:type}'
-done
+}
 ```
 
 Each environment must return one branch policy with name `main` and type
 `branch`.
+
+Confirm that both workflows are active in your fork:
+
+```powershell
+gh workflow list `
+  --repo $GITHUB_REPOSITORY `
+  --all
+```
 
 ## 5. Test the deployment loop
 
 The workflows normally run automatically when matching files change on `main`.
 For an initial access check, start each workflow manually from `main`:
 
-```bash
-gh workflow run backend.yml \
-  --repo jasonfarrell-msft/ws-ai-sdlc \
+```powershell
+gh workflow run backend.yml `
+  --repo $GITHUB_REPOSITORY `
   --ref main
 
-gh workflow run frontend.yml \
-  --repo jasonfarrell-msft/ws-ai-sdlc \
+gh workflow run frontend.yml `
+  --repo $GITHUB_REPOSITORY `
   --ref main
 ```
 
 List the runs:
 
-```bash
-gh run list \
-  --repo jasonfarrell-msft/ws-ai-sdlc \
+```powershell
+gh run list `
+  --repo $GITHUB_REPOSITORY `
   --limit 10
 ```
 
@@ -482,9 +549,9 @@ Azure role assignments can take several minutes to propagate. If either run
 fails with an authorization error, wait two minutes, copy its run ID from the
 list, and retry it:
 
-```bash
-gh run rerun '<run-id>' \
-  --repo jasonfarrell-msft/ws-ai-sdlc
+```powershell
+gh run rerun '<run-id>' `
+  --repo $GITHUB_REPOSITORY
 ```
 
 ## Section 2 complete
@@ -496,13 +563,13 @@ Container App and frontend changes deploy to App Service automatically.
 ## Optional: remove your isolated environment
 
 Cleanup is not part of Section 1 or Section 2. When you no longer need this
-deployment, use the exact command printed by `deploy.sh`:
+deployment, use the exact command printed by `deploy.ps1`:
 
-```bash
-./infra/destroy.sh \
-  --resource-group "$RESOURCE_GROUP" \
-  --environment-name "$RUN_IDENTIFIER" \
-  --confirm "$RUN_IDENTIFIER"
+```powershell
+pwsh ./infra/destroy.ps1 `
+  -ResourceGroup $RESOURCE_GROUP `
+  -EnvironmentName $RUN_IDENTIFIER `
+  -ConfirmEnvironment $RUN_IDENTIFIER
 ```
 
 This deletes only the deployment stack associated with that run identifier. It
@@ -511,17 +578,16 @@ preserves the resource group and other workshop environments.
 The two deployment identities were created outside the deployment stack. After
 the stack is deleted, remove them:
 
-```bash
-az identity delete \
-  --resource-group "$RESOURCE_GROUP" \
-  --name "id-gha-be-${RUN_IDENTIFIER}"
+```powershell
+az identity delete `
+  --resource-group $RESOURCE_GROUP `
+  --name "id-gha-be-$RUN_IDENTIFIER"
 
-az identity delete \
-  --resource-group "$RESOURCE_GROUP" \
-  --name "id-gha-fe-${RUN_IDENTIFIER}"
+az identity delete `
+  --resource-group $RESOURCE_GROUP `
+  --name "id-gha-fe-$RUN_IDENTIFIER"
 ```
 
-Before deleting a shared deployment target, coordinate with the repository
-administrator. They must repoint the two GitHub environments and the
-`AZURE_BACKEND_URL` repository variable to the next valid target so later
-workflow runs do not reference deleted Azure resources.
+After cleanup, update or remove the two GitHub environments and the
+`AZURE_BACKEND_URL` repository variable in your fork so later workflow runs do
+not reference deleted Azure resources.
