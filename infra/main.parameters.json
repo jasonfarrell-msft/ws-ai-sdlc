@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "deploymentLabel": {
+      "value": "aisdlc"
+    },
+    "containerImage": {
+      "value": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+    },
+    "externalIngressEnabled": {
+      "value": false
+    },
+    "enableDiagnostics": {
+      "value": false
+    },
+    "nodeRuntime": {
+      "value": "NODE|24-lts"
+    }
+  }
+}
