@@ -191,6 +191,89 @@ identity, Log Analytics, Application Insights, and diagnostic settings. ACR
 admin and anonymous access remain disabled, images are deployed by digest, and
 no application secrets are stored.
 
+## GitHub Actions deployments
+
+Two path-filtered workflows independently validate and deploy application
+changes:
+
+- [`.github/workflows/backend.yml`](.github/workflows/backend.yml) tests
+  FastAPI changes, builds the image with ACR Tasks, resolves its digest, updates
+  the Container App, and checks `/api/health`.
+- [`.github/workflows/frontend.yml`](.github/workflows/frontend.yml) checks the
+  React production build, rebuilds it with the deployed backend URL, ZIP
+  deploys it to App Service, and checks the website response.
+
+Pull requests run validation only. Pushes to `main` deploy the changed
+application, and either workflow can be run manually from `main`. Validation
+runs cancel obsolete work for the same branch. Azure deployment jobs use a
+fixed component-specific concurrency group and never cancel an in-progress
+deployment, preventing two runs from racing to update the same resource.
+
+### Configure the deployment environments
+
+Use separate deployment identities and GitHub environments so each workflow can
+modify only its own Azure resources.
+
+Create `workshop-backend` with:
+
+| Environment variable | Value |
+| --- | --- |
+| `AZURE_CLIENT_ID` | Client ID of the backend deployment identity |
+| `AZURE_TENANT_ID` | Microsoft Entra tenant ID |
+| `AZURE_SUBSCRIPTION_ID` | Subscription containing the deployment |
+| `AZURE_RESOURCE_GROUP` | Existing resource group containing the application |
+| `AZURE_CONTAINER_REGISTRY` | ACR resource name, without its login-server suffix |
+| `AZURE_CONTAINER_APP` | Backend Container App resource name |
+
+Create `workshop-frontend` with:
+
+| Environment variable | Value |
+| --- | --- |
+| `AZURE_CLIENT_ID` | Client ID of the frontend deployment identity |
+| `AZURE_TENANT_ID` | Microsoft Entra tenant ID |
+| `AZURE_SUBSCRIPTION_ID` | Subscription containing the deployment |
+| `AZURE_RESOURCE_GROUP` | Existing resource group containing the application |
+| `AZURE_APP_SERVICE` | Frontend App Service resource name |
+
+Add `AZURE_BACKEND_URL` as a repository variable containing the backend HTTPS
+origin without a trailing slash. It is public configuration used by the
+unprivileged frontend packaging job.
+
+Use dedicated user-assigned managed identities for GitHub rather than the
+Container App's image-pull identity. Add an environment-scoped federated
+credential to each deployment identity with:
+
+- Issuer: `https://token.actions.githubusercontent.com`
+- Audience: `api://AzureADTokenExchange`
+- Backend subject:
+  `repo:jasonfarrell-msft/ws-ai-sdlc:environment:workshop-backend`
+- Frontend subject:
+  `repo:jasonfarrell-msft/ws-ai-sdlc:environment:workshop-frontend`
+
+Under **Deployment branches and tags**, choose **Selected branches and tags**
+and add only `main` for both environments. The workflows also enforce
+`refs/heads/main` before any deployment job can start. No manual approval is
+required: merging a backend or frontend change to `main` completes the loop by
+deploying that component automatically.
+
+No GitHub secret or Azure client secret is required. At the narrowest applicable
+resource scopes, grant the identities:
+
+| Role | Scope | Used by |
+| --- | --- | --- |
+| `Container Registry Tasks Contributor` | Backend identity, ACR resource | Submit and inspect ACR builds |
+| `AcrPull` | Backend identity, ACR resource | Resolve the built image digest |
+| `Container Apps Contributor` | Backend identity, Container App | Deploy the digest-pinned image |
+| `Website Contributor` | Frontend identity, App Service | Deploy the frontend ZIP |
+
+The workflows pin every action to a full commit SHA and grant `id-token: write`
+only to deployment jobs. Frontend dependencies are installed and production
+assets are packaged in a separate job that cannot request an OIDC token.
+
+Section 2 of [`docs/setup.md`](docs/setup.md) uses
+`infra/configure-github-actions.sh` to create the identities, federated
+credentials, role assignments, environments, and variables.
+
 ## Ephemeral reset behavior
 
 Tickets and history are held in a lock-protected, process-local store. Restarting

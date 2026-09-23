@@ -126,10 +126,10 @@ if [[ "$SKIP_CODE_DEPLOY" == "false" ]]; then
     "${PROJECT_ROOT}/src/backend" \
     --output none
 
-  IMAGE_DIGEST="$(az acr manifest show-metadata \
+  IMAGE_DIGEST="$(az acr repository show \
     --subscription "$SUBSCRIPTION_ID" \
-    --registry "$REGISTRY_NAME" \
-    --name "${BACKEND_REPOSITORY}:${IMAGE_TAG}" \
+    --name "$REGISTRY_NAME" \
+    --image "${BACKEND_REPOSITORY}:${IMAGE_TAG}" \
     --query digest \
     --output tsv)"
   [[ -n "$IMAGE_DIGEST" ]] || fail "ACR did not return a digest for the backend image."
@@ -189,6 +189,7 @@ Resource group:   ${RESOURCE_GROUP}
 Location:         ${RESOURCE_LOCATION}
 Frontend URL:     ${FRONTEND_URL}
 Backend URL:      ${BACKEND_URL}
+Frontend App:     ${FRONTEND_APP_NAME}
 Container App:    ${CONTAINER_APP_NAME}
 Registry:         ${REGISTRY_NAME}
 

@@ -50,25 +50,20 @@ You need:
   an existing resource group
 - Azure CLI 2.48.1 or newer
 - The Azure CLI Bicep component
+- Git
 - Node.js 22 or newer and npm 10.9 or newer
 - `zip`, `curl`, and `openssl`
-- A local copy of this repository
 
 The deployment uses Microsoft Entra authentication. It does not require an ACR
 admin password or App Service publishing credentials.
 
-## 1. Open the repository
+## 1. Clone the repository
 
-Open a terminal and change to the repository root:
-
-```bash
-cd /path/to/ai-sdlc
-```
-
-Confirm that the deployment scripts are present:
+Open a terminal and clone the workshop repository:
 
 ```bash
-ls infra/deploy.sh infra/validate.sh infra/destroy.sh
+git clone https://github.com/jasonfarrell-msft/ws-ai-sdlc.git
+cd ws-ai-sdlc
 ```
 
 ## 2. Check the required tools
@@ -76,6 +71,7 @@ ls infra/deploy.sh infra/validate.sh infra/destroy.sh
 Run:
 
 ```bash
+git --version
 az version --query '"azure-cli"' --output tsv
 az bicep version
 node --version
@@ -87,6 +83,7 @@ openssl version
 
 Confirm that:
 
+- Git is installed.
 - Azure CLI is version 2.48.1 or newer.
 - Node.js is version 22 or newer.
 - npm is version 10.9 or newer.
@@ -223,6 +220,7 @@ Resource group:   <resource-group-name>
 Location:         <resource-group-location>
 Frontend URL:     https://<app-name>.azurewebsites.net
 Backend URL:      https://<app-name>.<environment>.azurecontainerapps.io
+Frontend App:     <frontend-app-name>
 Container App:    <container-app-name>
 Registry:         <registry-name>
 ```
@@ -235,6 +233,7 @@ Save the following values for later workshop sections:
 | Deployment stack | |
 | Frontend URL | |
 | Backend URL | |
+| Frontend App | |
 | Container App | |
 | Registry | |
 
@@ -294,17 +293,235 @@ remaining workshop sections.
 The AI feature is intentionally not present yet. A later section will extend
 this working starting point.
 
+# Section 2: Configure Automatic Deployment
+
+## Goal
+
+In this section, you connect the GitHub Actions workflows to the Azure resources
+created in Section 1. After setup, a completed backend or frontend change merged
+to `main` automatically deploys the changed component.
+
+The setup uses GitHub OIDC and Azure managed identities. It does not create or
+store an Azure client secret, registry password, or App Service publishing
+credential.
+
+> [!IMPORTANT]
+> These settings belong to the shared `jasonfarrell-msft/ws-ai-sdlc`
+> repository. Run this section only when you are authorized to set its current
+> workshop deployment target.
+
+## Prerequisites
+
+Before continuing:
+
+- Complete Section 1 and keep its recorded deployment values.
+- Use a Bash-compatible terminal.
+- Install GitHub CLI.
+- Have administrator access to `jasonfarrell-msft/ws-ai-sdlc`.
+- Have permission to create managed identities and role assignments at the
+  three Azure resource scopes.
+- Confirm the backend and frontend workflow files are on `main`.
+
+## 1. Check the required access
+
+Confirm that Azure CLI is signed in to the subscription used in Section 1:
+
+```bash
+az account show \
+  --query '{subscription:name,id:id,user:user.name}' \
+  --output table
+```
+
+Sign in to GitHub CLI and confirm repository administrator access:
+
+```bash
+gh auth login
+gh auth status
+gh api repos/jasonfarrell-msft/ws-ai-sdlc \
+  --jq '{repository:.full_name,admin:.permissions.admin}'
+```
+
+The GitHub command must show `"admin": true`.
+
+## 2. Set the Section 1 deployment values
+
+Use the values printed by `infra/deploy.sh`:
+
+```bash
+RESOURCE_GROUP='<resource-group-name>'
+RUN_IDENTIFIER='<18-character-run-identifier>'
+AZURE_CONTAINER_REGISTRY='<registry-name>'
+AZURE_CONTAINER_APP='<container-app-name>'
+AZURE_APP_SERVICE='<frontend-app-name>'
+AZURE_BACKEND_URL='https://<backend-app>.<environment>.azurecontainerapps.io'
+```
+
+The backend URL must use HTTPS and must not end with `/`.
+
+## 3. Configure Azure and GitHub access
+
+Run the setup script from the repository root:
+
+```bash
+./infra/configure-github-actions.sh \
+  --resource-group "$RESOURCE_GROUP" \
+  --environment-name "$RUN_IDENTIFIER" \
+  --container-registry "$AZURE_CONTAINER_REGISTRY" \
+  --container-app "$AZURE_CONTAINER_APP" \
+  --app-service "$AZURE_APP_SERVICE" \
+  --backend-url "$AZURE_BACKEND_URL"
+```
+
+The script creates and configures:
+
+| Item | Purpose |
+| --- | --- |
+| Backend deployment identity | Builds in ACR and updates only the Container App |
+| Frontend deployment identity | Updates only the App Service |
+| Two OIDC federated credentials | Let GitHub authenticate without stored secrets |
+| `workshop-backend` environment | Supplies backend Azure resource variables |
+| `workshop-frontend` environment | Supplies frontend Azure resource variables |
+| `AZURE_BACKEND_URL` repository variable | Configures the frontend production build |
+| `main` environment branch policies | Prevent non-`main` deployment jobs from using either identity |
+
+No manual deployment approval is configured. The path-filtered workflows deploy
+automatically after a matching change reaches `main`.
+
+The script is safe to run again with the same values if setup is interrupted.
+
+## 4. Verify the configuration
+
+Confirm the backend environment variables:
+
+```bash
+gh variable list \
+  --repo jasonfarrell-msft/ws-ai-sdlc \
+  --env workshop-backend
+```
+
+Expected names:
+
+```text
+AZURE_CLIENT_ID
+AZURE_TENANT_ID
+AZURE_SUBSCRIPTION_ID
+AZURE_RESOURCE_GROUP
+AZURE_CONTAINER_REGISTRY
+AZURE_CONTAINER_APP
+```
+
+Confirm the frontend environment variables:
+
+```bash
+gh variable list \
+  --repo jasonfarrell-msft/ws-ai-sdlc \
+  --env workshop-frontend
+```
+
+Expected names:
+
+```text
+AZURE_CLIENT_ID
+AZURE_TENANT_ID
+AZURE_SUBSCRIPTION_ID
+AZURE_RESOURCE_GROUP
+AZURE_APP_SERVICE
+```
+
+Confirm the repository variable:
+
+```bash
+gh variable list \
+  --repo jasonfarrell-msft/ws-ai-sdlc |
+  grep '^AZURE_BACKEND_URL'
+```
+
+Confirm that both environments allow only `main`:
+
+```bash
+for environment_name in workshop-backend workshop-frontend
+do
+  gh api \
+    "repos/jasonfarrell-msft/ws-ai-sdlc/environments/${environment_name}/deployment-branch-policies" \
+    --jq '.branch_policies[] | {name:name,type:type}'
+done
+```
+
+Each environment must return one branch policy with name `main` and type
+`branch`.
+
+## 5. Test the deployment loop
+
+The workflows normally run automatically when matching files change on `main`.
+For an initial access check, start each workflow manually from `main`:
+
+```bash
+gh workflow run backend.yml \
+  --repo jasonfarrell-msft/ws-ai-sdlc \
+  --ref main
+
+gh workflow run frontend.yml \
+  --repo jasonfarrell-msft/ws-ai-sdlc \
+  --ref main
+```
+
+List the runs:
+
+```bash
+gh run list \
+  --repo jasonfarrell-msft/ws-ai-sdlc \
+  --limit 10
+```
+
+Both runs should complete successfully without an approval step. The backend
+workflow builds and deploys a digest-pinned image, and the frontend workflow
+builds and ZIP deploys the site. Each workflow verifies its deployed endpoint
+before reporting success.
+
+Azure role assignments can take several minutes to propagate. If either run
+fails with an authorization error, wait two minutes, copy its run ID from the
+list, and retry it:
+
+```bash
+gh run rerun '<run-id>' \
+  --repo jasonfarrell-msft/ws-ai-sdlc
+```
+
+## Section 2 complete
+
+The deployment loop is ready. Pull requests validate changes without Azure
+access. After completed work is merged to `main`, backend changes deploy to the
+Container App and frontend changes deploy to App Service automatically.
+
 ## Optional: remove your isolated environment
 
-Cleanup is not part of Section 1. When you no longer need this deployment, use
-the exact command printed by `deploy.sh`:
+Cleanup is not part of Section 1 or Section 2. When you no longer need this
+deployment, use the exact command printed by `deploy.sh`:
 
 ```bash
 ./infra/destroy.sh \
   --resource-group "$RESOURCE_GROUP" \
-  --environment-name '<run-identifier>' \
-  --confirm '<run-identifier>'
+  --environment-name "$RUN_IDENTIFIER" \
+  --confirm "$RUN_IDENTIFIER"
 ```
 
 This deletes only the deployment stack associated with that run identifier. It
 preserves the resource group and other workshop environments.
+
+The two deployment identities were created outside the deployment stack. After
+the stack is deleted, remove them:
+
+```bash
+az identity delete \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "id-gha-be-${RUN_IDENTIFIER}"
+
+az identity delete \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "id-gha-fe-${RUN_IDENTIFIER}"
+```
+
+Before deleting a shared deployment target, coordinate with the repository
+administrator. They must repoint the two GitHub environments and the
+`AZURE_BACKEND_URL` repository variable to the next valid target so later
+workflow runs do not reference deleted Azure resources.
