@@ -191,9 +191,7 @@ pwsh ./infra/deploy.ps1 `
   -ResourceGroup '<resource-group-name>'
 ```
 
-The deployment prints the frontend and backend URLs plus a targeted
-`infra/destroy.ps1` command. That command removes only the generated deployment
-stack; it does not delete the shared resource group.
+The deployment prints the frontend and backend URLs.
 
 By default, each deployment creates an App Service plan and frontend app, a
 Container Apps environment and backend app, ACR, the least-privilege image-pull
@@ -285,7 +283,7 @@ The workflows pin every action to a full commit SHA and grant `id-token: write`
 only to deployment jobs. Frontend dependencies are installed and production
 assets are packaged in a separate job that cannot request an OIDC token.
 
-Section 2 of [`docs/setup.md`](docs/setup.md) uses
+Part 2, [`docs/02-github-action-setup.md`](docs/02-github-action-setup.md), uses
 `infra/configure-github-actions.ps1` to create the identities, federated
 credentials, role assignments, environments, and variables in the
 participant's verified fork. The script also enables both workflows in that

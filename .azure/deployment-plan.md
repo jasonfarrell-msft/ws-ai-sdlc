@@ -44,9 +44,7 @@ allows browser CORS requests only from the generated frontend origin.
 6. ZIP-deploy the contents of `dist` to App Service.
 7. Verify `/api/health` and the frontend root.
 
-Every run receives a cryptographically random identifier. The matching
-`infra/destroy.ps1` command deletes only that generated stack and preserves the
-resource group and other workshop environments.
+Every run receives a cryptographically random identifier.
 
 ## Accepted workshop boundaries
 
