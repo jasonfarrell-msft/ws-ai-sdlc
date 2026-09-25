@@ -56,7 +56,7 @@ gh repo view `
 The GitHub command must show `isFork: true`, `admin: true`, and upstream
 `jasonfarrell-msft/ws-ai-sdlc`.
 
-## 2. Set the Section 1 deployment values
+## 2. Set the Part 1 deployment values
 
 Use the values printed by `infra/deploy.ps1`:
 
