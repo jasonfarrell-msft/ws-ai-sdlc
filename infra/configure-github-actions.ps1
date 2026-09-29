@@ -38,13 +38,6 @@ $sourceRepository = 'jasonfarrell-msft/ws-ai-sdlc'
 Assert-Command -Name az
 Assert-Command -Name gh
 Assert-AzureCliVersion
-Select-AzureSubscription
-Resolve-ResourceLocation -ResourceGroup $ResourceGroup
-
-$tenantId = az account show --query tenantId --output tsv
-if ([string]::IsNullOrWhiteSpace($tenantId)) {
-    throw 'Azure CLI did not return a tenant ID.'
-}
 
 try {
     $isRepositoryAdmin = gh api "repos/$Repository" --jq '.permissions.admin'
@@ -67,6 +60,51 @@ gh api `
     "repos/$Repository/actions/permissions" `
     -F enabled=true `
     -f allowed_actions=all | Out-Null
+
+try {
+    $workflowInventoryJson = gh api "repos/$Repository/actions/workflows"
+    $workflowInventory = ($workflowInventoryJson -join [Environment]::NewLine) |
+        ConvertFrom-Json -Depth 10
+}
+catch {
+    throw "GitHub CLI could not inspect workflows in '$Repository'."
+}
+
+$registeredWorkflowCount = 0
+if (-not [int]::TryParse(
+        [string]$workflowInventory.total_count,
+        [ref]$registeredWorkflowCount
+    )) {
+    throw "GitHub CLI could not determine the workflow count for '$Repository'. Confirm GitHub CLI authentication and repository access."
+}
+
+$workshopWorkflowPaths = @(
+    '.github/workflows/backend.yml'
+    '.github/workflows/frontend.yml'
+)
+$workshopWorkflows = @(
+    $workflowInventory.workflows |
+        Where-Object { $_.path -in $workshopWorkflowPaths }
+)
+$disabledForkWorkflows = @(
+    $workshopWorkflows |
+        Where-Object { $_.state -eq 'disabled_fork' }
+)
+
+if ($registeredWorkflowCount -eq 0 -or $disabledForkWorkflows.Count -gt 0) {
+    throw "GitHub Actions is not enabled for '$Repository'. Open https://github.com/$Repository/actions, enable workflows for the fork, and rerun this script."
+}
+if ($workshopWorkflows.Count -ne $workshopWorkflowPaths.Count) {
+    throw "The backend and frontend workflows are not both registered in '$Repository'. Confirm that both workflow files are present on the default branch."
+}
+
+Select-AzureSubscription
+Resolve-ResourceLocation -ResourceGroup $ResourceGroup
+
+$tenantId = az account show --query tenantId --output tsv
+if ([string]::IsNullOrWhiteSpace($tenantId)) {
+    throw 'Azure CLI did not return a tenant ID.'
+}
 
 $backendWorkflowState = ''
 $frontendWorkflowState = ''

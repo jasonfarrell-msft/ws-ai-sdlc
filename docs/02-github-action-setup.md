@@ -55,7 +55,40 @@ gh api `
 The GitHub command must show `isFork: true`, `admin: true`, and upstream
 `jasonfarrell-msft/ws-ai-sdlc`.
 
-## 2. Set the Part 1 deployment values
+## 2. Enable workflows in your fork
+
+GitHub disables Actions when a repository is first forked. This setting can
+only be enabled from the GitHub website.
+
+Open the Actions tab for your fork:
+
+```powershell
+Write-Host "https://github.com/$GITHUB_REPOSITORY/actions"
+```
+
+Open the printed URL, then select
+**I understand my workflows, go ahead and enable them**.
+
+Confirm that GitHub now reports registered workflows:
+
+```powershell
+gh api `
+  "repos/$GITHUB_REPOSITORY/actions/workflows" `
+  --jq '{
+    registeredWorkflows:.total_count,
+    workflows:[.workflows[] | {path,state}]
+  }'
+```
+
+The `registeredWorkflows` value must be greater than zero, both workshop
+workflow paths must appear, and neither workflow should report
+`disabled_fork`. The setup script checks these conditions before creating
+Azure identities or GitHub environments. If the count is zero or a workflow
+reports `disabled_fork`, confirm that you enabled workflows. If a path is
+missing, confirm that both workflow files are present on your fork's `main`
+branch.
+
+## 3. Set the Part 1 deployment values
 
 Use the values printed by `infra/deploy.ps1`:
 
@@ -70,7 +103,7 @@ $AZURE_BACKEND_URL = 'https://<backend-app>.<environment>.azurecontainerapps.io'
 
 The backend URL must use HTTPS and must not end with `/`.
 
-## 3. Configure Azure and GitHub access
+## 4. Configure Azure and GitHub access
 
 Run the setup script from the repository root:
 
@@ -98,14 +131,15 @@ The script creates and configures:
 | `main` environment branch policies | Prevent non-`main` deployment jobs from using either identity |
 
 The script also verifies that the target is your fork of the workshop
-repository, enables GitHub Actions for the fork, and enables both workflows.
+repository, confirms that you enabled Actions for the fork, configures its
+Actions permissions, and enables both workflows.
 
 No manual deployment approval is configured. The path-filtered workflows deploy
 automatically after a matching change reaches `main`.
 
 The script is safe to run again with the same values if setup is interrupted.
 
-## 4. Verify the configuration
+## 5. Verify the configuration
 
 Confirm the backend environment variables:
 
@@ -173,7 +207,7 @@ gh workflow list `
   --all
 ```
 
-## 5. Test the deployment loop
+## 6. Test the deployment loop
 
 The workflows normally run automatically when matching files change on `main`.
 For an initial access check, start each workflow manually from `main`:

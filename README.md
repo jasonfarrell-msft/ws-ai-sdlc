@@ -288,7 +288,8 @@ Part 2, [`docs/02-github-action-setup.md`](docs/02-github-action-setup.md), uses
 `infra/configure-github-actions.ps1` to create the identities, federated
 credentials, role assignments, environments, and variables in the
 participant's verified fork. The script also enables both workflows in that
-fork, including repository-level GitHub Actions when the fork is new.
+fork after the participant completes GitHub's one-time Actions opt-in from the
+fork's Actions tab.
 
 ## Ephemeral reset behavior
 
