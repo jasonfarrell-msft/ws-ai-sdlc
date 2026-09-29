@@ -440,9 +440,15 @@ The specialist should stop after presenting the proposed hierarchy. Review the
 Epic, Features, User Stories, assumptions, and planned changes. If the proposal
 is correct, approve the exact operations in a follow-up message.
 
-### 3. Verify the backlog
+### 3. Review what was created
 
-After the specialist completes the approved changes, confirm that:
+After the specialist completes the approved changes, open the reported work
+item URLs in Azure Boards. Review the Epic first, then each Feature and its
+child User Stories. Confirm that the titles, descriptions, acceptance
+criteria, assumptions, dependencies, constraints, and success measures match
+the proposal you approved.
+
+As you review the hierarchy, confirm that:
 
 - The Epic has both Features as children.
 - Every User Story has exactly one parent Feature.
@@ -454,8 +460,9 @@ After the specialist completes the approved changes, confirm that:
 - The specialist reports IDs and URLs that open the expected Azure Boards work
   items.
 
-Independently read each reported work item from Azure Boards. Replace the
-placeholders with the IDs returned by the specialist:
+Do not rely only on the specialist's summary. Independently read each reported
+work item from Azure Boards. Replace the placeholders with the IDs returned by
+the specialist:
 
 ```powershell
 $WORK_ITEM_IDS = @(<epic-id>, <feature-id>, <story-id>)
