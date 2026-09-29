@@ -56,9 +56,8 @@ if ($isRepositoryAdmin -ne 'true') {
     throw "Administrator access to '$Repository' is required."
 }
 
-$isWorkshopFork = gh repo view $Repository `
-    --json isFork,parent `
-    --jq ".isFork and (.parent.nameWithOwner == `"$sourceRepository`")"
+$isWorkshopFork = gh api "repos/$Repository" `
+    --jq ".fork and (.parent.full_name == `"$sourceRepository`")"
 if ($isWorkshopFork -ne 'true') {
     throw "'$Repository' must be a fork of '$sourceRepository'."
 }

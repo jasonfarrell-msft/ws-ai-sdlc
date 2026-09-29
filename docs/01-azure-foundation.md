@@ -97,19 +97,19 @@ Write-Host $GITHUB_REPOSITORY
 Confirm the repository is your fork and both remotes are present:
 
 ```powershell
-gh repo view `
-  $GITHUB_REPOSITORY `
-  --json nameWithOwner,isFork,parent `
+gh api `
+  "repos/$GITHUB_REPOSITORY" `
   --jq '{
-    repository:.nameWithOwner,
-    isFork:.isFork,
-    upstream:.parent.nameWithOwner
+    repository:.full_name,
+    isFork:.fork,
+    admin:.permissions.admin,
+    upstream:.parent.full_name
   }'
 
 git remote -v
 ```
 
-Confirm that `isFork` is `true`, `upstream` is
+Confirm that `isFork` and `admin` are `true`, `upstream` is
 `jasonfarrell-msft/ws-ai-sdlc`, `origin` points to your fork, and `upstream`
 points to the workshop source repository.
 
@@ -192,7 +192,7 @@ separate location parameter to the deployment scripts.
 > [!NOTE]
 > Use a new resource group dedicated to this workshop. The deployment creates
 > a separate deployment stack inside it, which keeps the workshop resources
-> isolated and simplifies cleanup.
+> isolated from other workloads.
 
 ## 5. Validate the infrastructure
 
@@ -351,13 +351,3 @@ remaining workshop sections.
 
 The AI feature is intentionally not present yet. A later section will extend
 this working starting point.
-
-Keep the dedicated resource group until you complete the workshop. When you no
-longer need the environment or its saved deployment values, delete the group
-and all workshop resources inside it:
-
-```powershell
-az group delete `
-  --name $RESOURCE_GROUP `
-  --yes
-```

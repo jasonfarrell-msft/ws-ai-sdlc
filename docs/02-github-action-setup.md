@@ -42,14 +42,13 @@ $GITHUB_REPOSITORY = gh repo view `
   --json nameWithOwner `
   --jq .nameWithOwner
 
-gh repo view `
-  $GITHUB_REPOSITORY `
-  --json nameWithOwner,isFork,viewerCanAdminister,parent `
+gh api `
+  "repos/$GITHUB_REPOSITORY" `
   --jq '{
-    repository:.nameWithOwner,
-    isFork:.isFork,
-    admin:.viewerCanAdminister,
-    upstream:.parent.nameWithOwner
+    repository:.full_name,
+    isFork:.fork,
+    admin:.permissions.admin,
+    upstream:.parent.full_name
   }'
 ```
 
