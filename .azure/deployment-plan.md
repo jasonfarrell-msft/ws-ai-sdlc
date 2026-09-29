@@ -4,8 +4,8 @@
 
 ## Purpose
 
-Deploy the Support Desk Simulator baseline into an existing resource group
-provided by the user. The deployment uses the resource group's location,
+Deploy the Support Desk Simulator baseline into a dedicated resource group
+created by the user. The deployment uses the resource group's location,
 remains resource-group scoped, and creates a separately removable deployment
 stack for each workshop environment.
 

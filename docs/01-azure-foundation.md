@@ -19,8 +19,8 @@ By the end of Section 1, you will have:
 
 ## Architecture
 
-The deployment creates a fresh, isolated deployment stack inside an existing
-resource group that you provide. Every regional component uses that resource
+The deployment creates a fresh, isolated deployment stack inside a dedicated
+resource group that you create. Every regional component uses that resource
 group's location.
 
 | Component | Azure service | Configuration |
@@ -45,8 +45,11 @@ Complete these steps from a PowerShell 7 terminal on Windows, macOS, or Linux.
 You need:
 
 - Access to an Azure subscription
-- `Owner`, or `Contributor` plus `Role Based Access Control Administrator`, on
-  an existing resource group
+- `Contributor` on the target subscription so you can create the dedicated
+  resource group and its application resources
+- `Role Based Access Control Administrator` on the target subscription, or on
+  the dedicated workshop resource group after it is created, so the deployment
+  can grant the managed identity registry-scoped `AcrPull`
 - Azure CLI 2.48.1 or newer
 - The Azure CLI Bicep component
 - Git
@@ -162,30 +165,34 @@ az account show `
   --output table
 ```
 
-## 4. Confirm the target resource group
+## 4. Create the target resource group
 
-Set the name of an existing resource group:
+Choose a name and Azure region for a dedicated workshop resource group:
 
 ```powershell
 $RESOURCE_GROUP = '<resource-group-name>'
+$LOCATION = '<azure-region>'
 ```
 
-Confirm that it exists in the active subscription:
+Create the resource group:
 
 ```powershell
-az group show `
+az group create `
   --name $RESOURCE_GROUP `
+  --location $LOCATION `
   --query '{name:name,location:location}' `
   --output table
 ```
 
-Record the location returned by Azure. The scripts read this value directly
-from the resource group and use it for every regional component. You do not
-provide a separate location parameter.
+The command returns the resource group's name and location. The deployment
+scripts read this location directly and use it for every regional component.
+Confirm that the returned location matches `$LOCATION`. You do not provide a
+separate location parameter to the deployment scripts.
 
 > [!NOTE]
-> The deployment creates a separate deployment stack inside this resource
-> group. It does not replace other workshop environments in the group.
+> Use a new resource group dedicated to this workshop. The deployment creates
+> a separate deployment stack inside it, which keeps the workshop resources
+> isolated and simplifies cleanup.
 
 ## 5. Validate the infrastructure
 
@@ -199,20 +206,24 @@ pwsh ./infra/validate.ps1 `
 The validation script:
 
 1. Selects the target Azure subscription.
-2. Reads the location from the existing resource group.
+2. Reads the location from the target resource group.
 3. Compiles [`infra/main.bicep`](../infra/main.bicep).
-4. Runs an Azure resource-group what-if operation with a temporary random
-   identifier.
+4. Asks Azure Resource Manager to evaluate the deployment and summarize the
+   proposed changes without applying them.
 5. Creates no resources.
 
 Confirm that the command prints:
 
 ```text
 Bicep compilation passed.
+Infrastructure validation passed. Planned changes: Create: <count>.
 ```
 
-Review the JSON what-if output. A fresh run should contain `Create` values in
-the `changes[].changeType` fields and newly generated resource names.
+The exact count can change as the workshop infrastructure evolves. A new
+workshop resource group should report only planned creates. The validation is
+not an emptiness check; it confirms that the template compiles and that Azure
+Resource Manager can evaluate the deployment in the selected subscription,
+resource group, and region.
 
 You may see a non-blocking `BCP081` warning for the Log Analytics API version.
 Azure validation accepts this registered API version.
@@ -340,3 +351,13 @@ remaining workshop sections.
 
 The AI feature is intentionally not present yet. A later section will extend
 this working starting point.
+
+Keep the dedicated resource group until you complete the workshop. When you no
+longer need the environment or its saved deployment values, delete the group
+and all workshop resources inside it:
+
+```powershell
+az group delete `
+  --name $RESOURCE_GROUP `
+  --yes
+```

@@ -19,7 +19,7 @@ az bicep build --file $templateFile --stdout | Out-Null
 Write-Host 'Bicep compilation passed.'
 
 $validationIdentifier = New-RunIdentifier
-az deployment group what-if `
+$whatIfJson = az deployment group what-if `
     --subscription $script:SubscriptionId `
     --resource-group $ResourceGroup `
     --template-file $templateFile `
@@ -28,4 +28,29 @@ az deployment group what-if `
         "location=$script:ResourceLocation" `
         "environmentName=$validationIdentifier" `
         'deploymentLabel=validation' `
-    --no-pretty-print
+    --exclude-change-types Ignore NoChange `
+    --no-pretty-print `
+    --output json
+
+if (-not $whatIfJson) {
+    throw 'Azure Resource Manager returned no what-if result.'
+}
+
+$whatIf = $whatIfJson | ConvertFrom-Json -Depth 100
+if ($whatIf.status -ne 'Succeeded') {
+    throw "Azure Resource Manager what-if did not succeed. Status: $($whatIf.status)."
+}
+
+$changes = @($whatIf.changes | Where-Object { $null -ne $_ })
+
+if ($changes.Count -eq 0) {
+    Write-Host 'Infrastructure validation passed. Azure reports no planned changes.'
+    return
+}
+
+$changeSummary = $changes |
+    Group-Object -Property changeType |
+    Sort-Object -Property Name |
+    ForEach-Object { "$($_.Name): $($_.Count)" }
+
+Write-Host "Infrastructure validation passed. Planned changes: $($changeSummary -join ', ')."

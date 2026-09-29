@@ -177,7 +177,8 @@ The intended split deployment is:
 Set `FRONTEND_ORIGIN` on the backend to the frontend's exact HTTPS origin. The
 deployment scripts set it from the generated App Service URL.
 
-Validate the deployment without creating resources:
+Validate the deployment against a dedicated workshop resource group without
+creating application resources:
 
 ```powershell
 pwsh ./infra/validate.ps1 `
