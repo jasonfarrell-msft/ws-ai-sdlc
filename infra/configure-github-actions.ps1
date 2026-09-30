@@ -20,9 +20,7 @@ param(
     [ValidateNotNullOrEmpty()]
     [string] $FrontendAppService,
 
-    [Parameter(Mandatory)]
-    [ValidatePattern('^https://[^/]+$')]
-    [string] $BackendUrl
+    [switch] $SkipForkValidation
 )
 
 . (Join-Path $PSScriptRoot 'lib/Common.ps1')
@@ -30,6 +28,7 @@ param(
 $backendEnvironment = 'workshop-backend'
 $frontendEnvironment = 'workshop-frontend'
 $sourceRepository = 'jasonfarrell-msft/ws-ai-sdlc'
+$backendUrl = "https://$BackendAppService.azurewebsites.net"
 
 Assert-Command -Name az
 Assert-Command -Name gh
@@ -48,7 +47,10 @@ if ($isRepositoryAdmin -ne 'true') {
 $isWorkshopFork = gh api "repos/$Repository" `
     --jq ".fork and (.parent.full_name == `"$sourceRepository`")"
 if ($isWorkshopFork -ne 'true') {
-    throw "'$Repository' must be a fork of '$sourceRepository'."
+    if (-not $SkipForkValidation) {
+        throw "'$Repository' must be a fork of '$sourceRepository'. For temporary testing against the source repository, rerun with -SkipForkValidation."
+    }
+    Write-Warning "Fork validation was skipped for '$Repository'. This testing-only override must not be used for participant setup."
 }
 
 gh api `
@@ -395,7 +397,7 @@ Set-EnvironmentVariable -Environment $frontendEnvironment -Name AZURE_APP_SERVIC
 
 gh variable set AZURE_BACKEND_URL `
     --repo $Repository `
-    --body $BackendUrl
+    --body $backendUrl
 
 Write-Host @"
 

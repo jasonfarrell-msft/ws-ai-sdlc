@@ -230,9 +230,10 @@ Create `workshop-frontend` with:
 | `AZURE_RESOURCE_GROUP` | Existing resource group containing the application |
 | `AZURE_APP_SERVICE` | Frontend App Service resource name |
 
-Add `AZURE_BACKEND_URL` as a repository variable containing the backend HTTPS
-origin without a trailing slash. It is public configuration used by the
-unprivileged frontend packaging job.
+Add `AZURE_BACKEND_URL` as a repository variable containing
+`https://<backend-app-service-name>.azurewebsites.net`. The workshop
+configuration script derives this value from the backend App Service name. It
+is public configuration used by the unprivileged frontend packaging job.
 
 Use dedicated user-assigned managed identities for GitHub. Add an
 environment-scoped federated credential to each deployment identity with:

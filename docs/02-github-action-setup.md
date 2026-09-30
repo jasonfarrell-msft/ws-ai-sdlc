@@ -96,14 +96,11 @@ $RESOURCE_GROUP = '<resource-group-name>'
 $ENVIRONMENT_NAME = '<initials>01'
 $AZURE_BACKEND_APP_SERVICE = '<backend-app-name>'
 $AZURE_FRONTEND_APP_SERVICE = '<frontend-app-name>'
-$AZURE_BACKEND_URL = 'https://<backend-app-name>.azurewebsites.net'
 ```
 
 Use the complete environment name printed by the deployment script. It consists
 of your lowercase initials followed by the fixed `01` suffix; for example,
 initials `JRF` produce `jrf01`.
-
-The backend URL must use HTTPS and must not end with `/`.
 
 ## 4. Configure Azure and GitHub access
 
@@ -115,7 +112,6 @@ pwsh ./infra/configure-github-actions.ps1 `
   -EnvironmentName $ENVIRONMENT_NAME `
   -BackendAppService $AZURE_BACKEND_APP_SERVICE `
   -FrontendAppService $AZURE_FRONTEND_APP_SERVICE `
-  -BackendUrl $AZURE_BACKEND_URL `
   -Repository $GITHUB_REPOSITORY
 ```
 
@@ -128,12 +124,19 @@ The script creates and configures:
 | Two OIDC federated credentials | Let GitHub authenticate without stored secrets |
 | `workshop-backend` environment | Supplies backend Azure resource variables |
 | `workshop-frontend` environment | Supplies frontend Azure resource variables |
-| `AZURE_BACKEND_URL` repository variable | Configures the frontend production build |
+| `AZURE_BACKEND_URL` repository variable | Configures the frontend production build; derived from the backend App Service name |
 | `main` environment branch policies | Prevent non-`main` deployment jobs from using either identity |
 
-The script also verifies that the target is your fork of the workshop
-repository, confirms that you enabled Actions for the fork, configures its
-Actions permissions, and enables both workflows.
+The script derives the backend URL as
+`https://<backend-app-name>.azurewebsites.net`. It also verifies that the target
+is your fork of the workshop repository, confirms that you enabled Actions for
+the fork, configures its Actions permissions, and enables both workflows.
+
+> [!WARNING]
+> Maintainers testing this setup against the source repository can temporarily
+> add `-SkipForkValidation` to the command. This testing-only override bypasses
+> only the fork-parent check and must not be used for participant setup. Remove
+> the parameter after source-repository testing is complete.
 
 No manual deployment approval is configured. The path-filtered workflows deploy
 automatically after a matching change reaches `main`.
@@ -189,15 +192,39 @@ gh variable list `
 Confirm that both environments allow only `main`:
 
 ```powershell
-foreach ($environmentName in 'workshop-backend', 'workshop-frontend') {
-  gh api `
+$GITHUB_REPOSITORY = gh repo view `
+  --json nameWithOwner `
+  --jq .nameWithOwner
+
+$branchPolicies = foreach (
+  $environmentName in 'workshop-backend', 'workshop-frontend'
+) {
+  $response = gh api `
     "repos/$GITHUB_REPOSITORY/environments/$environmentName/deployment-branch-policies" `
-    --jq '.branch_policies[] | {name:name,type:type}'
+    | ConvertFrom-Json
+
+  foreach ($policy in $response.branch_policies) {
+    [PSCustomObject]@{
+      Environment = $environmentName
+      Name = $policy.name
+      Type = $policy.type
+    }
+  }
 }
+
+$branchPolicies | Format-Table -AutoSize
 ```
 
-Each environment must return one branch policy with name `main` and type
-`branch`.
+Expected output:
+
+```text
+Environment       Name Type
+-----------       ---- ----
+workshop-backend  main branch
+workshop-frontend main branch
+```
+
+Each environment must return exactly one row.
 
 Confirm that both workflows are active in your fork:
 
