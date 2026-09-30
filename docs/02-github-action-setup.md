@@ -189,41 +189,6 @@ gh variable list `
   Select-String '^AZURE_BACKEND_URL'
 ```
 
-Confirm that both environments allow only `main`:
-
-```powershell
-$GITHUB_REPOSITORY = gh repo view `
-  --json nameWithOwner `
-  --jq .nameWithOwner
-
-$branchPolicies = foreach (
-  $environmentName in 'workshop-backend', 'workshop-frontend'
-) {
-  $response = gh api `
-    "repos/$GITHUB_REPOSITORY/environments/$environmentName/deployment-branch-policies" `
-    | ConvertFrom-Json
-
-  foreach ($policy in $response.branch_policies) {
-    [PSCustomObject]@{
-      Environment = $environmentName
-      Name = $policy.name
-      Type = $policy.type
-    }
-  }
-}
-
-$branchPolicies | Format-Table -AutoSize
-```
-
-Expected output:
-
-```text
-Environment       Name Type
------------       ---- ----
-workshop-backend  main branch
-workshop-frontend main branch
-```
-
 Each environment must return exactly one row.
 
 Confirm that both workflows are active in your fork:
