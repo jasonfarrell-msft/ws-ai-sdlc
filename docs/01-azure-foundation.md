@@ -11,9 +11,8 @@ You do not change the application code or add the AI feature in this section.
 By the end of Section 1, you will have:
 
 - A React frontend running on Azure App Service
-- A FastAPI backend running on Azure Container Apps
-- An Azure Container Registry with admin and anonymous access disabled
-- Managed identity access for the Container App to pull its image
+- A FastAPI backend running on Azure App Service
+- A shared Linux App Service plan for both applications
 - Log Analytics and Application Insights for platform telemetry
 - Frontend and backend URLs that you have verified
 
@@ -25,10 +24,9 @@ group's location.
 
 | Component | Azure service | Configuration |
 | --- | --- | --- |
-| Frontend | Linux App Service | S1 plan |
-| Backend | Azure Container Apps | One always-ready replica |
-| Container images | Azure Container Registry | Basic tier |
-| Image authentication | User-assigned managed identity | Registry-scoped `AcrPull` |
+| Frontend | Linux App Service | Node.js 24 LTS |
+| Backend | Linux App Service | Python 3.13 |
+| Compute | App Service plan | Shared S1 plan |
 | Monitoring | Log Analytics and Application Insights | 30-day workspace retention |
 
 Each run uses a new random identifier. This prevents naming collisions and
@@ -47,9 +45,6 @@ You need:
 - Access to an Azure subscription
 - `Contributor` on the target subscription so you can create the dedicated
   resource group and its application resources
-- `Role Based Access Control Administrator` on the target subscription, or on
-  the dedicated workshop resource group after it is created, so the deployment
-  can grant the managed identity registry-scoped `AcrPull`
 - Azure CLI 2.48.1 or newer
 - The Azure CLI Bicep component
 - Git
@@ -58,8 +53,8 @@ You need:
 - PowerShell 7
 - Node.js 22 or newer and npm 10.9 or newer
 
-The deployment uses Microsoft Entra authentication. It does not require an ACR
-admin password or App Service publishing credentials.
+The deployment uses Microsoft Entra authentication. It does not require App
+Service publishing credentials.
 
 ## 1. Fork and clone the repository
 
@@ -241,21 +236,20 @@ The deployment usually takes 10-20 minutes. The script:
 
 1. Generates a unique 18-character run identifier.
 2. Creates an isolated Azure deployment stack.
-3. Provisions the App Service, Container Apps, ACR, managed identity, and
-   monitoring resources.
-4. Builds the FastAPI container image in ACR.
-5. Resolves the image digest and deploys the digest-pinned image.
-6. Builds the React frontend with the generated backend URL.
-7. Deploys the frontend to App Service using Microsoft Entra authentication.
-8. Checks the frontend and backend endpoints.
+3. Provisions a shared App Service plan, separate frontend and backend web apps,
+   and monitoring resources.
+4. ZIP-deploys the FastAPI backend to its Python App Service.
+5. Builds the React frontend with the generated backend URL.
+6. ZIP-deploys the frontend to its Node.js App Service.
+7. Checks the frontend and backend endpoints.
 
 Do not close the terminal while the script is running.
 
 ### If deployment stops before completion
 
-The infrastructure may already exist if the script fails during the image
-build, frontend build, or endpoint checks. Before running `deploy.ps1` again,
-list the deployment stacks:
+The infrastructure may already exist if the script fails during backend
+deployment, frontend build, or endpoint checks. Before starting a fresh
+deployment, list the deployment stacks:
 
 ```powershell
 az stack group list `
@@ -266,7 +260,16 @@ az stack group list `
 
 Find the new stack whose name starts with `azstk`. The run identifier is the
 18-character value after that prefix. Record the stack name and state for
-troubleshooting, then rerun the deployment.
+troubleshooting, then remove the failed environment before rerunning:
+
+```powershell
+pwsh ./infra/destroy.ps1 `
+  -ResourceGroup $RESOURCE_GROUP `
+  -EnvironmentName '<18-character-run-identifier>' `
+  -ConfirmEnvironment '<18-character-run-identifier>'
+```
+
+Rerunning `deploy.ps1` creates a new environment with a new identifier.
 
 ## 7. Record the deployment output
 
@@ -279,10 +282,9 @@ Deployment stack: azstk<18-character-identifier>
 Resource group:   <resource-group-name>
 Location:         <resource-group-location>
 Frontend URL:     https://<app-name>.azurewebsites.net
-Backend URL:      https://<app-name>.<environment>.azurecontainerapps.io
+Backend URL:      https://<backend-app-name>.azurewebsites.net
 Frontend App:     <frontend-app-name>
-Container App:    <container-app-name>
-Registry:         <registry-name>
+Backend App:      <backend-app-name>
 ```
 
 Save the following values for later workshop sections:
@@ -294,8 +296,7 @@ Save the following values for later workshop sections:
 | Frontend URL | |
 | Backend URL | |
 | Frontend App | |
-| Container App | |
-| Registry | |
+| Backend App | |
 
 ## 8. Verify the deployed application
 
@@ -333,15 +334,15 @@ az webapp show `
   --query '{state:state,httpsOnly:httpsOnly}' `
   --output table
 
-az containerapp show `
+az webapp show `
   --resource-group $RESOURCE_GROUP `
-  --name '<container-app-name>' `
-  --query '{state:properties.provisioningState,fqdn:properties.configuration.ingress.fqdn}' `
+  --name '<backend-app-name>' `
+  --query '{state:state,httpsOnly:httpsOnly}' `
   --output table
 ```
 
-The App Service state should be `Running`, `httpsOnly` should be `true`, and
-the Container App provisioning state should be `Succeeded`.
+Both App Service states should be `Running`, and both `httpsOnly` values should
+be `true`.
 
 ## Deployment complete
 

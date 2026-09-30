@@ -12,9 +12,6 @@ param(
 
 . (Join-Path $PSScriptRoot 'lib/Common.ps1')
 
-$placeholderImage = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
-$backendRepository = 'support-desk-api'
-
 Assert-Command -Name az
 Assert-AzureCliVersion
 if (-not $SkipCodeDeploy) {
@@ -42,38 +39,22 @@ Write-Host "Deploying fresh run $runIdentifier to $ResourceGroup in $script:Reso
 $templateFile = Join-Path $script:InfraDirectory 'main.bicep'
 $parametersFile = Join-Path $script:InfraDirectory 'main.parameters.json'
 
-function Invoke-StackDeployment {
-    param(
-        [Parameter(Mandatory)]
-        [string] $Image,
-
-        [Parameter(Mandatory)]
-        [bool] $ExternalIngress,
-
-        [Parameter(Mandatory)]
-        [bool] $EnableDiagnostics
-    )
-
-    az stack group create `
-        --subscription $script:SubscriptionId `
-        --resource-group $ResourceGroup `
-        --name $stackName `
-        --template-file $templateFile `
-        --parameters $parametersFile `
-        --parameters `
-            "location=$script:ResourceLocation" `
-            "environmentName=$runIdentifier" `
-            "deploymentLabel=$Label" `
-            "deployedBy=$deployedBy" `
-            "createdAt=$createdAt" `
-            "containerImage=$Image" `
-            "externalIngressEnabled=$($ExternalIngress.ToString().ToLowerInvariant())" `
-            "enableDiagnostics=$($EnableDiagnostics.ToString().ToLowerInvariant())" `
-        --action-on-unmanage deleteAll `
-        --deny-settings-mode None `
-        --yes `
-        --output none
-}
+az stack group create `
+    --subscription $script:SubscriptionId `
+    --resource-group $ResourceGroup `
+    --name $stackName `
+    --template-file $templateFile `
+    --parameters $parametersFile `
+    --parameters `
+        "location=$script:ResourceLocation" `
+        "environmentName=$runIdentifier" `
+        "deploymentLabel=$Label" `
+        "deployedBy=$deployedBy" `
+        "createdAt=$createdAt" `
+    --action-on-unmanage deleteAll `
+    --deny-settings-mode None `
+    --yes `
+    --output none
 
 function Test-HttpEndpoint {
     param(
@@ -81,13 +62,13 @@ function Test-HttpEndpoint {
         [uri] $Uri
     )
 
-    for ($attempt = 1; $attempt -le 8; $attempt++) {
+    for ($attempt = 1; $attempt -le 12; $attempt++) {
         try {
             Invoke-WebRequest -Uri $Uri -Method Get -UseBasicParsing | Out-Null
             return
         }
         catch {
-            if ($attempt -eq 8) {
+            if ($attempt -eq 12) {
                 throw
             }
             Start-Sleep -Seconds 10
@@ -95,73 +76,43 @@ function Test-HttpEndpoint {
     }
 }
 
-Invoke-StackDeployment `
-    -Image $placeholderImage `
-    -ExternalIngress $false `
-    -EnableDiagnostics $false
-
-$registryName = Get-StackOutput -ResourceGroup $ResourceGroup -StackName $stackName -OutputName registryName
-$registryServer = Get-StackOutput -ResourceGroup $ResourceGroup -StackName $stackName -OutputName registryLoginServer
-$containerAppName = Get-StackOutput -ResourceGroup $ResourceGroup -StackName $stackName -OutputName containerAppName
+$backendAppName = Get-StackOutput -ResourceGroup $ResourceGroup -StackName $stackName -OutputName backendAppName
 $frontendAppName = Get-StackOutput -ResourceGroup $ResourceGroup -StackName $stackName -OutputName frontendAppName
 $backendUrl = Get-StackOutput -ResourceGroup $ResourceGroup -StackName $stackName -OutputName backendUrl
 $frontendUrl = Get-StackOutput -ResourceGroup $ResourceGroup -StackName $stackName -OutputName frontendUrl
 
 if (-not $SkipCodeDeploy) {
-    $dockerfile = Join-Path $script:ProjectRoot 'src/backend/Dockerfile'
     $backendDirectory = Join-Path $script:ProjectRoot 'src/backend'
-
-    az acr build `
-        --subscription $script:SubscriptionId `
-        --registry $registryName `
-        --image "${backendRepository}:$runIdentifier" `
-        --file $dockerfile `
-        $backendDirectory `
-        --output none
-
-    $imageDigest = az acr repository show `
-        --subscription $script:SubscriptionId `
-        --name $registryName `
-        --image "${backendRepository}:$runIdentifier" `
-        --query digest `
-        --output tsv
-    if ([string]::IsNullOrWhiteSpace($imageDigest)) {
-        throw 'ACR did not return a digest for the backend image.'
-    }
-    $backendImage = "${registryServer}/${backendRepository}@${imageDigest}"
-
-    $deployed = $false
-    $delay = 10
-    for ($attempt = 1; $attempt -le 6; $attempt++) {
-        Write-Host "Applying backend image (attempt $attempt of 6)."
-        try {
-            Invoke-StackDeployment `
-                -Image $backendImage `
-                -ExternalIngress $true `
-                -EnableDiagnostics $true
-            $deployed = $true
-            break
-        }
-        catch {
-            if ($attempt -eq 6) {
-                break
-            }
-            Write-Host "Waiting $delay seconds for AcrPull role propagation."
-            Start-Sleep -Seconds $delay
-            $delay *= 2
-        }
-    }
-    if (-not $deployed) {
-        throw 'The backend image could not be applied after AcrPull propagation retries.'
-    }
-
+    $backendStageDirectory = Join-Path $script:InfraDirectory "backend-$runIdentifier"
+    $backendZipPath = Join-Path $script:InfraDirectory "backend-$runIdentifier.zip"
     $frontendDirectory = Join-Path $script:ProjectRoot 'src/frontend'
-    $distDirectory = Join-Path $frontendDirectory 'dist'
-    $zipPath = Join-Path $script:InfraDirectory "frontend-$runIdentifier.zip"
+    $frontendDistDirectory = Join-Path $frontendDirectory 'dist'
+    $frontendZipPath = Join-Path $script:InfraDirectory "frontend-$runIdentifier.zip"
     $previousApiBaseUrl = $env:VITE_API_BASE_URL
     $locationPushed = $false
 
     try {
+        $backendStageAppDirectory = Join-Path $backendStageDirectory 'app'
+        New-Item -ItemType Directory -Path $backendStageAppDirectory | Out-Null
+        Copy-Item `
+            -Path (Join-Path $backendDirectory 'app/*.py') `
+            -Destination $backendStageAppDirectory
+        Copy-Item `
+            -Path (Join-Path $backendDirectory 'requirements.txt') `
+            -Destination $backendStageDirectory
+        Get-ChildItem -Path $backendStageDirectory -Force |
+            Compress-Archive -DestinationPath $backendZipPath
+
+        az webapp deploy `
+            --subscription $script:SubscriptionId `
+            --resource-group $ResourceGroup `
+            --name $backendAppName `
+            --src-path $backendZipPath `
+            --type zip `
+            --clean true `
+            --restart true `
+            --output none
+
         Push-Location $frontendDirectory
         $locationPushed = $true
         npm ci --replace-registry-host=never
@@ -170,17 +121,14 @@ if (-not $SkipCodeDeploy) {
         Pop-Location
         $locationPushed = $false
 
-        if (Test-Path $zipPath) {
-            Remove-Item $zipPath -Force
-        }
-        Get-ChildItem -Path $distDirectory -Force |
-            Compress-Archive -DestinationPath $zipPath
+        Get-ChildItem -Path $frontendDistDirectory -Force |
+            Compress-Archive -DestinationPath $frontendZipPath
 
         az webapp deploy `
             --subscription $script:SubscriptionId `
             --resource-group $ResourceGroup `
             --name $frontendAppName `
-            --src-path $zipPath `
+            --src-path $frontendZipPath `
             --type zip `
             --clean true `
             --restart true `
@@ -191,8 +139,13 @@ if (-not $SkipCodeDeploy) {
             Pop-Location
         }
         $env:VITE_API_BASE_URL = $previousApiBaseUrl
-        if (Test-Path $zipPath) {
-            Remove-Item $zipPath -Force
+        foreach ($zipPath in $backendZipPath, $frontendZipPath) {
+            if (Test-Path $zipPath) {
+                Remove-Item $zipPath -Force
+            }
+        }
+        if (Test-Path $backendStageDirectory) {
+            Remove-Item $backendStageDirectory -Recurse -Force
         }
     }
 
@@ -210,8 +163,7 @@ Location:         $script:ResourceLocation
 Frontend URL:     $frontendUrl
 Backend URL:      $backendUrl
 Frontend App:     $frontendAppName
-Container App:    $containerAppName
-Registry:         $registryName
+Backend App:      $backendAppName
 
 To remove only this generated environment:
 pwsh ./infra/destroy.ps1 -ResourceGroup '$ResourceGroup' -EnvironmentName '$runIdentifier' -ConfirmEnvironment '$runIdentifier'

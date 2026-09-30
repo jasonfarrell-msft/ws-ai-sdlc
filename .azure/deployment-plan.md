@@ -14,7 +14,7 @@ stack for each workshop environment.
 | Component | Technology | Azure target |
 | --- | --- | --- |
 | Frontend | React 19, TypeScript, Vite | Linux App Service S1 |
-| Backend | Python 3.13, FastAPI | Azure Container Apps Consumption |
+| Backend | Python 3.13, FastAPI | Linux App Service S1 |
 
 The application uses only synthetic, process-local data. It deliberately has no
 AI feature, durable database, or production authentication.
@@ -23,26 +23,24 @@ AI feature, durable database, or production authentication.
 
 The Bicep deployment creates:
 
-- A Linux S1 App Service plan and App Service for the compiled SPA
-- An Azure Container Apps environment and one-replica FastAPI Container App
-- An Azure Container Registry Basic instance
-- A user-assigned identity with registry-scoped `AcrPull`
+- A shared Linux S1 App Service plan
+- A Node.js App Service for the compiled SPA
+- A Python App Service for the FastAPI backend
 - A Log Analytics workspace and workspace-based Application Insights
-- Diagnostic settings for App Service and Container Apps
+- Diagnostic settings for both App Services
 
-HTTPS is required, insecure Container Apps ingress is disabled, App Service
-uses TLS 1.2 or newer, ACR admin and anonymous access are disabled, and the API
-allows browser CORS requests only from the generated frontend origin.
+HTTPS is required, both App Services use TLS 1.2 or newer, FTP and SCM basic
+authentication are disabled, and the API allows browser CORS requests only
+from the generated frontend origin.
 
 ## Deployment flow
 
 1. Validate Bicep and run a resource-group what-if.
-2. Create a fresh deployment stack with a private placeholder Container App.
-3. Build the backend from `src/backend` using ACR Tasks.
-4. Resolve the image digest and redeploy with external HTTPS ingress.
-5. Build the Vite frontend using the backend URL.
-6. ZIP-deploy the contents of `dist` to App Service.
-7. Verify `/api/health` and the frontend root.
+2. Create a fresh deployment stack containing two Linux App Services.
+3. ZIP-deploy the backend source to the Python App Service.
+4. Build the Vite frontend using the backend URL.
+5. ZIP-deploy the contents of `dist` to the Node.js App Service.
+6. Verify `/api/health` and the frontend root.
 
 Every run receives a cryptographically random identifier.
 
@@ -75,11 +73,11 @@ Every run receives a cryptographically random identifier.
 ## Role assignment verification
 
 - **Status:** Verified
-- **Identity:** Dedicated user-assigned Container Apps registry-pull identity
-- **Role:** `AcrPull` (`7f951dda-4ed3-4680-a7ca-43fe172d538d`)
-- **Scope:** The generated Azure Container Registry only
-- **Result:** Least-privilege data-plane access matches the backend image-pull
-  requirement. No application identity or broader role is required.
+- **Identity:** Separate GitHub Actions deployment identities for the backend
+  and frontend
+- **Role:** `Website Contributor`
+- **Scope:** Each generated App Service only
+- **Result:** Each workflow can update only its corresponding App Service.
 
 ## Validation proof
 

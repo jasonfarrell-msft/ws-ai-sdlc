@@ -7,8 +7,7 @@ created in Part 1. After setup, a completed backend or frontend change merged
 to `main` automatically deploys the changed component.
 
 The setup uses GitHub OIDC and Azure managed identities. It does not create or
-store an Azure client secret, registry password, or App Service publishing
-credential.
+store an Azure client secret or App Service publishing credential.
 
 ## Prerequisites
 
@@ -18,7 +17,7 @@ Before continuing:
 - Use a PowerShell 7 terminal.
 - Use the personal fork created and cloned in Part 1.
 - Have permission to create managed identities and role assignments at the
-  three Azure resource scopes.
+  two App Service resource scopes.
 - Confirm the backend and frontend workflow files are on your fork's `main`
   branch.
 
@@ -95,10 +94,9 @@ Use the values printed by `infra/deploy.ps1`:
 ```powershell
 $RESOURCE_GROUP = '<resource-group-name>'
 $RUN_IDENTIFIER = '<18-character-run-identifier>'
-$AZURE_CONTAINER_REGISTRY = '<registry-name>'
-$AZURE_CONTAINER_APP = '<container-app-name>'
-$AZURE_APP_SERVICE = '<frontend-app-name>'
-$AZURE_BACKEND_URL = 'https://<backend-app>.<environment>.azurecontainerapps.io'
+$AZURE_BACKEND_APP_SERVICE = '<backend-app-name>'
+$AZURE_FRONTEND_APP_SERVICE = '<frontend-app-name>'
+$AZURE_BACKEND_URL = 'https://<backend-app-name>.azurewebsites.net'
 ```
 
 The backend URL must use HTTPS and must not end with `/`.
@@ -111,9 +109,8 @@ Run the setup script from the repository root:
 pwsh ./infra/configure-github-actions.ps1 `
   -ResourceGroup $RESOURCE_GROUP `
   -EnvironmentName $RUN_IDENTIFIER `
-  -ContainerRegistry $AZURE_CONTAINER_REGISTRY `
-  -ContainerApp $AZURE_CONTAINER_APP `
-  -AppService $AZURE_APP_SERVICE `
+  -BackendAppService $AZURE_BACKEND_APP_SERVICE `
+  -FrontendAppService $AZURE_FRONTEND_APP_SERVICE `
   -BackendUrl $AZURE_BACKEND_URL `
   -Repository $GITHUB_REPOSITORY
 ```
@@ -122,8 +119,8 @@ The script creates and configures:
 
 | Item | Purpose |
 | --- | --- |
-| Backend deployment identity | Builds in ACR and updates only the Container App |
-| Frontend deployment identity | Updates only the App Service |
+| Backend deployment identity | Updates only the backend App Service |
+| Frontend deployment identity | Updates only the frontend App Service |
 | Two OIDC federated credentials | Let GitHub authenticate without stored secrets |
 | `workshop-backend` environment | Supplies backend Azure resource variables |
 | `workshop-frontend` environment | Supplies frontend Azure resource variables |
@@ -156,8 +153,7 @@ AZURE_CLIENT_ID
 AZURE_TENANT_ID
 AZURE_SUBSCRIPTION_ID
 AZURE_RESOURCE_GROUP
-AZURE_CONTAINER_REGISTRY
-AZURE_CONTAINER_APP
+AZURE_BACKEND_APP_SERVICE
 ```
 
 Confirm the frontend environment variables:
@@ -231,9 +227,9 @@ gh run list `
 ```
 
 Both runs should complete successfully without an approval step. The backend
-workflow builds and deploys a digest-pinned image, and the frontend workflow
-builds and ZIP deploys the site. Each workflow verifies its deployed endpoint
-before reporting success.
+workflow ZIP-deploys the Python application, and the frontend workflow builds
+and ZIP-deploys the site. Each workflow verifies its deployed endpoint before
+reporting success.
 
 Azure role assignments can take several minutes to propagate. If either run
 fails with an authorization error, wait two minutes, copy its run ID from the
@@ -247,5 +243,5 @@ gh run rerun '<run-id>' `
 ## Automatic deployment setup complete
 
 The deployment loop is ready. Pull requests validate changes without Azure
-access. After completed work is merged to `main`, backend changes deploy to the
-Container App and frontend changes deploy to App Service automatically.
+access. After completed work is merged to `main`, backend and frontend changes
+deploy to their respective App Services automatically.

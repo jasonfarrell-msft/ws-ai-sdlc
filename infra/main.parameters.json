@@ -5,17 +5,14 @@
     "deploymentLabel": {
       "value": "aisdlc"
     },
-    "containerImage": {
-      "value": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
-    },
-    "externalIngressEnabled": {
-      "value": false
-    },
     "enableDiagnostics": {
-      "value": false
+      "value": true
     },
     "nodeRuntime": {
       "value": "NODE|24-lts"
+    },
+    "pythonRuntime": {
+      "value": "PYTHON|3.13"
     }
   }
 }

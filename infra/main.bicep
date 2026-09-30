@@ -21,23 +21,14 @@ param deployedBy string = 'azure-cli'
 @description('ISO 8601 timestamp when the deployment was created.')
 param createdAt string = utcNow()
 
-@description('Container image for the backend. The first deployment uses the Microsoft placeholder image.')
-param containerImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
-
-@description('Enables public ingress only after the digest-pinned application image is ready.')
-param externalIngressEnabled bool = false
-
 @description('Enables diagnostic settings after the application resources are ready.')
-param enableDiagnostics bool = false
+param enableDiagnostics bool = true
 
-@description('Creates a dedicated App Service frontend. Disable only when reusing an existing frontend host.')
-param provisionFrontend bool = true
-
-@description('Existing HTTPS frontend origin used for CORS when the generated frontend is not the public entry point.')
-param frontendOriginOverride string = ''
-
-@description('Current GA Node.js runtime used by the Linux App Service.')
+@description('Current GA Node.js runtime used by the frontend Linux App Service.')
 param nodeRuntime string = 'NODE|24-lts'
+
+@description('Current GA Python runtime used by the backend Linux App Service.')
+param pythonRuntime string = 'PYTHON|3.13'
 
 var resourceToken = uniqueString(subscription().id, resourceGroup().id, location, environmentName)
 var commonTags = {
@@ -54,19 +45,11 @@ var commonTags = {
 
 var logAnalyticsName = 'azlaw${resourceToken}'
 var applicationInsightsName = 'azai${resourceToken}'
-var registryName = 'azacr${resourceToken}'
-var pullIdentityName = 'azidp${resourceToken}'
-var containerEnvironmentName = 'azcae${resourceToken}'
-var containerAppName = 'azca${resourceToken}'
 var appServicePlanName = 'azasp${resourceToken}'
-var frontendAppName = 'azweb${resourceToken}'
-var generatedFrontendOrigin = 'https://${frontendAppName}.azurewebsites.net'
-var frontendOrigin = empty(frontendOriginOverride) ? generatedFrontendOrigin : frontendOriginOverride
-var backendOrigin = 'https://${containerAppName}.${containerEnvironment.properties.defaultDomain}'
-var acrPullRoleDefinitionId = subscriptionResourceId(
-  'Microsoft.Authorization/roleDefinitions',
-  '7f951dda-4ed3-4680-a7ca-43fe172d538d'
-)
+var frontendAppName = 'azwebfe${resourceToken}'
+var backendAppName = 'azwebbe${resourceToken}'
+var frontendOrigin = 'https://${frontendApp.properties.defaultHostName}'
+var backendOrigin = 'https://${backendApp.properties.defaultHostName}'
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2026-03-01' = {
   name: logAnalyticsName
@@ -96,190 +79,7 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
-resource registry 'Microsoft.ContainerRegistry/registries@2025-11-01' = {
-  name: registryName
-  location: location
-  tags: commonTags
-  sku: {
-    name: 'Basic'
-  }
-  properties: {
-    adminUserEnabled: false
-    anonymousPullEnabled: false
-    dataEndpointEnabled: false
-    networkRuleBypassOptions: 'None'
-    publicNetworkAccess: 'Enabled'
-  }
-}
-
-resource pullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' = {
-  name: pullIdentityName
-  location: location
-  tags: commonTags
-}
-
-resource registryPullAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(registry.id, pullIdentity.id, acrPullRoleDefinitionId)
-  scope: registry
-  properties: {
-    principalId: pullIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: acrPullRoleDefinitionId
-  }
-}
-
-resource containerEnvironment 'Microsoft.App/managedEnvironments@2026-01-01' = {
-  name: containerEnvironmentName
-  location: location
-  tags: commonTags
-  properties: {
-    appLogsConfiguration: {
-      destination: 'azure-monitor'
-    }
-    zoneRedundant: false
-  }
-}
-
-resource containerEnvironmentDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (enableDiagnostics) {
-  name: 'azdsca${resourceToken}'
-  scope: containerEnvironment
-  properties: {
-    workspaceId: logAnalytics.id
-    logs: [
-      {
-        category: 'ContainerAppConsoleLogs'
-        enabled: true
-      }
-      {
-        category: 'ContainerAppSystemLogs'
-        enabled: true
-      }
-    ]
-    metrics: [
-      {
-        category: 'AllMetrics'
-        enabled: true
-      }
-    ]
-  }
-}
-
-resource containerApp 'Microsoft.App/containerApps@2026-01-01' = {
-  name: containerAppName
-  location: location
-  tags: commonTags
-  identity: {
-    type: 'UserAssigned'
-    userAssignedIdentities: {
-      '${pullIdentity.id}': {}
-    }
-  }
-  properties: {
-    environmentId: containerEnvironment.id
-    configuration: {
-      activeRevisionsMode: 'Single'
-      ingress: {
-        allowInsecure: false
-        clientCertificateMode: 'Ignore'
-        corsPolicy: {
-          allowCredentials: false
-          allowedHeaders: [
-            'Content-Type'
-            'x-demo-user'
-            'x-demo-role'
-          ]
-          allowedMethods: [
-            'GET'
-            'POST'
-            'PATCH'
-            'OPTIONS'
-          ]
-          allowedOrigins: [
-            frontendOrigin
-          ]
-          exposeHeaders: []
-          maxAge: 3600
-        }
-        external: externalIngressEnabled
-        targetPort: 8080
-        transport: 'auto'
-      }
-      registries: [
-        {
-          identity: pullIdentity.id
-          server: registry.properties.loginServer
-        }
-      ]
-    }
-    template: {
-      containers: [
-        {
-          name: 'api'
-          image: containerImage
-          env: [
-            {
-              name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-              value: applicationInsights.properties.ConnectionString
-            }
-            {
-              name: 'FRONTEND_ORIGIN'
-              value: frontendOrigin
-            }
-          ]
-          resources: {
-            cpu: json('0.25')
-            memory: '0.5Gi'
-          }
-          probes: [
-            {
-              type: 'Liveness'
-              httpGet: {
-                path: '/api/health'
-                port: 8080
-                scheme: 'HTTP'
-              }
-              initialDelaySeconds: 10
-              periodSeconds: 30
-              timeoutSeconds: 5
-              failureThreshold: 3
-            }
-            {
-              type: 'Readiness'
-              httpGet: {
-                path: '/api/health'
-                port: 8080
-                scheme: 'HTTP'
-              }
-              initialDelaySeconds: 5
-              periodSeconds: 10
-              timeoutSeconds: 5
-              failureThreshold: 3
-            }
-          ]
-        }
-      ]
-      scale: {
-        minReplicas: 1
-        maxReplicas: 1
-        rules: [
-          {
-            name: 'http'
-            http: {
-              metadata: {
-                concurrentRequests: '50'
-              }
-            }
-          }
-        ]
-      }
-    }
-  }
-  dependsOn: [
-    registryPullAssignment
-  ]
-}
-
-resource appServicePlan 'Microsoft.Web/serverfarms@2025-03-01' = if (provisionFrontend) {
+resource appServicePlan 'Microsoft.Web/serverfarms@2025-03-01' = {
   name: appServicePlanName
   location: location
   kind: 'linux'
@@ -296,7 +96,7 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2025-03-01' = if (provisionFr
   }
 }
 
-resource frontendApp 'Microsoft.Web/sites@2025-03-01' = if (provisionFrontend) {
+resource frontendApp 'Microsoft.Web/sites@2025-03-01' = {
   name: frontendAppName
   location: location
   kind: 'app,linux'
@@ -332,7 +132,52 @@ resource frontendApp 'Microsoft.Web/sites@2025-03-01' = if (provisionFrontend) {
   }
 }
 
-resource basicPublishingCredentialsPoliciesFtp 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@2024-04-01' = if (provisionFrontend) {
+resource backendApp 'Microsoft.Web/sites@2025-03-01' = {
+  name: backendAppName
+  location: location
+  kind: 'app,linux'
+  tags: commonTags
+  properties: {
+    clientAffinityEnabled: false
+    httpsOnly: true
+    publicNetworkAccess: 'Enabled'
+    serverFarmId: appServicePlan.id
+    siteConfig: {
+      alwaysOn: true
+      appCommandLine: 'python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log'
+      ftpsState: 'Disabled'
+      healthCheckPath: '/api/health'
+      http20Enabled: true
+      linuxFxVersion: pythonRuntime
+      minTlsVersion: '1.2'
+      scmMinTlsVersion: '1.2'
+      appSettings: [
+        {
+          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+          value: applicationInsights.properties.ConnectionString
+        }
+        {
+          name: 'FRONTEND_ORIGIN'
+          value: frontendOrigin
+        }
+        {
+          name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
+          value: 'true'
+        }
+        {
+          name: 'ENABLE_ORYX_BUILD'
+          value: 'true'
+        }
+        {
+          name: 'WEBSITE_HTTPLOGGING_RETENTION_DAYS'
+          value: '7'
+        }
+      ]
+    }
+  }
+}
+
+resource frontendPublishingCredentialsPoliciesFtp 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@2024-04-01' = {
   parent: frontendApp
   name: 'ftp'
   properties: {
@@ -340,7 +185,7 @@ resource basicPublishingCredentialsPoliciesFtp 'Microsoft.Web/sites/basicPublish
   }
 }
 
-resource basicPublishingCredentialsPoliciesScm 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@2024-04-01' = if (provisionFrontend) {
+resource frontendPublishingCredentialsPoliciesScm 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@2024-04-01' = {
   parent: frontendApp
   name: 'scm'
   properties: {
@@ -348,9 +193,53 @@ resource basicPublishingCredentialsPoliciesScm 'Microsoft.Web/sites/basicPublish
   }
 }
 
-resource frontendDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (provisionFrontend && enableDiagnostics) {
-  name: 'azds${resourceToken}'
+resource backendPublishingCredentialsPoliciesFtp 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@2024-04-01' = {
+  parent: backendApp
+  name: 'ftp'
+  properties: {
+    allow: false
+  }
+}
+
+resource backendPublishingCredentialsPoliciesScm 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@2024-04-01' = {
+  parent: backendApp
+  name: 'scm'
+  properties: {
+    allow: false
+  }
+}
+
+resource frontendDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (enableDiagnostics) {
+  name: 'azdsfe${resourceToken}'
   scope: frontendApp
+  properties: {
+    workspaceId: logAnalytics.id
+    logs: [
+      {
+        category: 'AppServiceHTTPLogs'
+        enabled: true
+      }
+      {
+        category: 'AppServiceConsoleLogs'
+        enabled: true
+      }
+      {
+        category: 'AppServiceAppLogs'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+      }
+    ]
+  }
+}
+
+resource backendDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (enableDiagnostics) {
+  name: 'azdsbe${resourceToken}'
+  scope: backendApp
   properties: {
     workspaceId: logAnalytics.id
     logs: [
@@ -378,10 +267,7 @@ resource frontendDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-p
 
 output environmentName string = environmentName
 output resourceToken string = resourceToken
-output registryName string = registry.name
-output registryLoginServer string = registry.properties.loginServer
-output pullIdentityName string = pullIdentity.name
-output containerAppName string = containerApp.name
-output backendUrl string = backendOrigin
-output frontendAppName string = provisionFrontend ? frontendAppName : ''
+output frontendAppName string = frontendApp.name
 output frontendUrl string = frontendOrigin
+output backendAppName string = backendApp.name
+output backendUrl string = backendOrigin

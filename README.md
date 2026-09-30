@@ -62,7 +62,7 @@ treated as an authentication mechanism.
 
 ```text
 src/
-  backend/    FastAPI app, tests, requirements, and production Dockerfile
+  backend/    FastAPI app, tests, and Python requirements
   frontend/   React 19 + TypeScript + Vite application
 infra/        Bicep plus validate, deploy, and targeted-destroy scripts
 docs/         Reserved for workshop part files supplied separately
@@ -146,31 +146,14 @@ Article list supports `search`. Errors use a stable shape:
 }
 ```
 
-## Backend container
-
-Build from the repository root:
-
-```powershell
-docker build -f src/backend/Dockerfile -t support-desk-api src/backend
-docker run --rm -p 8080:8080 `
-  -e FRONTEND_ORIGIN=http://localhost:5173 `
-  support-desk-api
-Invoke-RestMethod -Uri http://localhost:8080/api/health
-```
-
-The production image runs as a non-root user, disables access logs, listens on
-`0.0.0.0:8080`, and has an OCI health check for `/api/health`.
-
 ## Azure architecture
 
 The intended split deployment is:
 
-- **Backend:** one FastAPI replica runs in Azure Container Apps Consumption and
-  exposes port 8080 over HTTPS.
+- **Backend:** FastAPI runs on a Python 3.13 Linux App Service.
 - **Frontend:** the Vite production assets are built with the backend's public
-  URL in `VITE_API_BASE_URL` and served by a Linux S1 App Service.
-- **Images:** Azure Container Registry Basic stores the backend image; a
-  registry-scoped managed identity provides `AcrPull`.
+  URL in `VITE_API_BASE_URL` and served by a Node.js 24 Linux App Service.
+- **Compute:** both applications share one Linux S1 App Service plan.
 - **Observability:** Log Analytics, workspace-based Application Insights, and
   diagnostic settings collect platform telemetry.
 
@@ -194,11 +177,10 @@ pwsh ./infra/deploy.ps1 `
 
 The deployment prints the frontend and backend URLs.
 
-By default, each deployment creates an App Service plan and frontend app, a
-Container Apps environment and backend app, ACR, the least-privilege image-pull
-identity, Log Analytics, Application Insights, and diagnostic settings. ACR
-admin and anonymous access remain disabled, images are deployed by digest, and
-no application secrets are stored.
+By default, each deployment creates a shared App Service plan, separate
+frontend and backend web apps, Log Analytics, Application Insights, and
+diagnostic settings. FTP and SCM basic publishing authentication are disabled,
+and no application secrets are stored.
 
 ## GitHub Actions deployments
 
@@ -206,8 +188,8 @@ Two path-filtered workflows independently validate and deploy application
 changes:
 
 - [`.github/workflows/backend.yml`](.github/workflows/backend.yml) tests
-  FastAPI changes, builds the image with ACR Tasks, resolves its digest, updates
-  the Container App, and checks `/api/health`.
+  FastAPI changes, ZIP-deploys the backend to App Service, and checks
+  `/api/health`.
 - [`.github/workflows/frontend.yml`](.github/workflows/frontend.yml) checks the
   React production build, rebuilds it with the deployed backend URL, ZIP
   deploys it to App Service, and checks the website response.
@@ -236,8 +218,7 @@ Create `workshop-backend` with:
 | `AZURE_TENANT_ID` | Microsoft Entra tenant ID |
 | `AZURE_SUBSCRIPTION_ID` | Subscription containing the deployment |
 | `AZURE_RESOURCE_GROUP` | Existing resource group containing the application |
-| `AZURE_CONTAINER_REGISTRY` | ACR resource name, without its login-server suffix |
-| `AZURE_CONTAINER_APP` | Backend Container App resource name |
+| `AZURE_BACKEND_APP_SERVICE` | Backend App Service resource name |
 
 Create `workshop-frontend` with:
 
@@ -253,9 +234,8 @@ Add `AZURE_BACKEND_URL` as a repository variable containing the backend HTTPS
 origin without a trailing slash. It is public configuration used by the
 unprivileged frontend packaging job.
 
-Use dedicated user-assigned managed identities for GitHub rather than the
-Container App's image-pull identity. Add an environment-scoped federated
-credential to each deployment identity with:
+Use dedicated user-assigned managed identities for GitHub. Add an
+environment-scoped federated credential to each deployment identity with:
 
 - Issuer: `https://token.actions.githubusercontent.com`
 - Audience: `api://AzureADTokenExchange`
@@ -275,9 +255,7 @@ resource scopes, grant the identities:
 
 | Role | Scope | Used by |
 | --- | --- | --- |
-| `Container Registry Tasks Contributor` | Backend identity, ACR resource | Submit and inspect ACR builds |
-| `AcrPull` | Backend identity, ACR resource | Resolve the built image digest |
-| `Container Apps Contributor` | Backend identity, Container App | Deploy the digest-pinned image |
+| `Website Contributor` | Backend identity, backend App Service | Deploy the backend ZIP |
 | `Website Contributor` | Frontend identity, App Service | Deploy the frontend ZIP |
 
 The workflows pin every action to a full commit SHA and grant `id-token: write`
@@ -306,7 +284,7 @@ must be replaced by a durable data store before any production use.
   lengths, and reject bodies larger than 16 KB.
 - CORS permits only `FRONTEND_ORIGIN`; credentials are not enabled.
 - Responses set no-sniff, frame, referrer, permissions, and no-store headers.
-- Uvicorn access logging is disabled in the container. Application code never
+- Uvicorn access logging is disabled in App Service. Application code never
   logs ticket subjects or descriptions.
 - Azure Monitor ingestion and query endpoints are public, but telemetry access
   still requires Azure RBAC. Private endpoints and network isolation are outside

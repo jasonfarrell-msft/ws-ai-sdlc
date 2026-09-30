@@ -1,9 +1,0 @@
-**/node_modules
-**/dist
-**/bin
-**/obj
-.git
-.github
-coverage
-*.log
-.env*

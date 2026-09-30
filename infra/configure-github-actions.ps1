@@ -14,15 +14,11 @@ param(
 
     [Parameter(Mandatory)]
     [ValidateNotNullOrEmpty()]
-    [string] $ContainerRegistry,
+    [string] $BackendAppService,
 
     [Parameter(Mandatory)]
     [ValidateNotNullOrEmpty()]
-    [string] $ContainerApp,
-
-    [Parameter(Mandatory)]
-    [ValidateNotNullOrEmpty()]
-    [string] $AppService,
+    [string] $FrontendAppService,
 
     [Parameter(Mandatory)]
     [ValidatePattern('^https://[^/]+$')]
@@ -360,41 +356,27 @@ Ensure-FederatedCredential `
     -CredentialName 'github-workshop-frontend' `
     -GitHubEnvironment $frontendEnvironment
 
-$acrId = az acr show `
+$backendAppServiceId = az webapp show `
     --subscription $script:SubscriptionId `
     --resource-group $ResourceGroup `
-    --name $ContainerRegistry `
+    --name $BackendAppService `
     --query id `
     --output tsv
-$containerAppId = az containerapp show `
+$frontendAppServiceId = az webapp show `
     --subscription $script:SubscriptionId `
     --resource-group $ResourceGroup `
-    --name $ContainerApp `
-    --query id `
-    --output tsv
-$appServiceId = az webapp show `
-    --subscription $script:SubscriptionId `
-    --resource-group $ResourceGroup `
-    --name $AppService `
+    --name $FrontendAppService `
     --query id `
     --output tsv
 
 Ensure-RoleAssignment `
     -PrincipalId $backendPrincipalId `
-    -RoleName 'Container Registry Tasks Contributor' `
-    -Scope $acrId
-Ensure-RoleAssignment `
-    -PrincipalId $backendPrincipalId `
-    -RoleName 'AcrPull' `
-    -Scope $acrId
-Ensure-RoleAssignment `
-    -PrincipalId $backendPrincipalId `
-    -RoleName 'Container Apps Contributor' `
-    -Scope $containerAppId
+    -RoleName 'Website Contributor' `
+    -Scope $backendAppServiceId
 Ensure-RoleAssignment `
     -PrincipalId $frontendPrincipalId `
     -RoleName 'Website Contributor' `
-    -Scope $appServiceId
+    -Scope $frontendAppServiceId
 
 Set-GitHubEnvironment -Name $backendEnvironment
 Set-GitHubEnvironment -Name $frontendEnvironment
@@ -403,14 +385,13 @@ Set-EnvironmentVariable -Environment $backendEnvironment -Name AZURE_CLIENT_ID -
 Set-EnvironmentVariable -Environment $backendEnvironment -Name AZURE_TENANT_ID -Value $tenantId
 Set-EnvironmentVariable -Environment $backendEnvironment -Name AZURE_SUBSCRIPTION_ID -Value $script:SubscriptionId
 Set-EnvironmentVariable -Environment $backendEnvironment -Name AZURE_RESOURCE_GROUP -Value $ResourceGroup
-Set-EnvironmentVariable -Environment $backendEnvironment -Name AZURE_CONTAINER_REGISTRY -Value $ContainerRegistry
-Set-EnvironmentVariable -Environment $backendEnvironment -Name AZURE_CONTAINER_APP -Value $ContainerApp
+Set-EnvironmentVariable -Environment $backendEnvironment -Name AZURE_BACKEND_APP_SERVICE -Value $BackendAppService
 
 Set-EnvironmentVariable -Environment $frontendEnvironment -Name AZURE_CLIENT_ID -Value $frontendClientId
 Set-EnvironmentVariable -Environment $frontendEnvironment -Name AZURE_TENANT_ID -Value $tenantId
 Set-EnvironmentVariable -Environment $frontendEnvironment -Name AZURE_SUBSCRIPTION_ID -Value $script:SubscriptionId
 Set-EnvironmentVariable -Environment $frontendEnvironment -Name AZURE_RESOURCE_GROUP -Value $ResourceGroup
-Set-EnvironmentVariable -Environment $frontendEnvironment -Name AZURE_APP_SERVICE -Value $AppService
+Set-EnvironmentVariable -Environment $frontendEnvironment -Name AZURE_APP_SERVICE -Value $FrontendAppService
 
 gh variable set AZURE_BACKEND_URL `
     --repo $Repository `
