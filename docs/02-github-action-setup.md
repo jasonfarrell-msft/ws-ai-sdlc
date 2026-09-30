@@ -93,11 +93,15 @@ Use the values printed by `infra/deploy.ps1`:
 
 ```powershell
 $RESOURCE_GROUP = '<resource-group-name>'
-$RUN_IDENTIFIER = '<18-character-run-identifier>'
+$ENVIRONMENT_NAME = '<initials>01'
 $AZURE_BACKEND_APP_SERVICE = '<backend-app-name>'
 $AZURE_FRONTEND_APP_SERVICE = '<frontend-app-name>'
 $AZURE_BACKEND_URL = 'https://<backend-app-name>.azurewebsites.net'
 ```
+
+Use the complete environment name printed by the deployment script. It consists
+of your lowercase initials followed by the fixed `01` suffix; for example,
+initials `JRF` produce `jrf01`.
 
 The backend URL must use HTTPS and must not end with `/`.
 
@@ -108,7 +112,7 @@ Run the setup script from the repository root:
 ```powershell
 pwsh ./infra/configure-github-actions.ps1 `
   -ResourceGroup $RESOURCE_GROUP `
-  -EnvironmentName $RUN_IDENTIFIER `
+  -EnvironmentName $ENVIRONMENT_NAME `
   -BackendAppService $AZURE_BACKEND_APP_SERVICE `
   -FrontendAppService $AZURE_FRONTEND_APP_SERVICE `
   -BackendUrl $AZURE_BACKEND_URL `

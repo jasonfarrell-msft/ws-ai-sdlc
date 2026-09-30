@@ -18,7 +18,7 @@ $parametersFile = Join-Path $script:InfraDirectory 'main.parameters.json'
 az bicep build --file $templateFile --stdout | Out-Null
 Write-Host 'Bicep compilation passed.'
 
-$validationIdentifier = New-RunIdentifier
+$validationEnvironmentName = 'val01'
 $whatIfJson = az deployment group what-if `
     --subscription $script:SubscriptionId `
     --resource-group $ResourceGroup `
@@ -26,7 +26,7 @@ $whatIfJson = az deployment group what-if `
     --parameters $parametersFile `
     --parameters `
         "location=$script:ResourceLocation" `
-        "environmentName=$validationIdentifier" `
+        "environmentName=$validationEnvironmentName" `
         'deploymentLabel=validation' `
     --exclude-change-types Ignore NoChange `
     --no-pretty-print `

@@ -232,9 +232,22 @@ pwsh ./infra/deploy.ps1 `
   -ResourceGroup $RESOURCE_GROUP
 ```
 
+When prompted, enter only 2-5 letters for your initials. Do not include a
+numeric suffix. The script lowercases the initials and appends the fixed suffix
+`01`, so `JRF` becomes the environment name `jrf01`.
+
+For non-interactive use, pass the initials without the suffix:
+
+```powershell
+pwsh ./infra/deploy.ps1 `
+  -ResourceGroup $RESOURCE_GROUP `
+  -Initials JRF
+```
+
 The deployment usually takes 10-20 minutes. The script:
 
-1. Generates a unique 18-character run identifier.
+1. Prompts for your initials and creates an environment name by appending `01`
+   (for example, `jrf` becomes `jrf01`).
 2. Creates an isolated Azure deployment stack.
 3. Provisions a shared App Service plan, separate frontend and backend web apps,
    and monitoring resources.
@@ -258,18 +271,19 @@ az stack group list `
   --output table
 ```
 
-Find the new stack whose name starts with `azstk`. The run identifier is the
-18-character value after that prefix. Record the stack name and state for
-troubleshooting, then remove the failed environment before rerunning:
+Find the new stack whose name starts with `azstk`. The environment name is the
+lowercase initials followed by `01` after that prefix. For example,
+`azstkjrf01` uses the environment name `jrf01`. Record the stack name and state
+for troubleshooting, then remove the failed environment before rerunning:
 
 ```powershell
 pwsh ./infra/destroy.ps1 `
   -ResourceGroup $RESOURCE_GROUP `
-  -EnvironmentName '<18-character-run-identifier>' `
-  -ConfirmEnvironment '<18-character-run-identifier>'
+  -EnvironmentName '<initials>01' `
+  -ConfirmEnvironment '<initials>01'
 ```
 
-Rerunning `deploy.ps1` creates a new environment with a new identifier.
+Rerunning `deploy.ps1` with the same initials updates the same environment.
 
 ## 7. Record the deployment output
 
@@ -277,8 +291,8 @@ When deployment succeeds, the script prints values similar to:
 
 ```text
 Deployment complete.
-Run identifier:  <18-character-identifier>
-Deployment stack: azstk<18-character-identifier>
+Environment name: <initials>01
+Deployment stack: azstk<initials>01
 Resource group:   <resource-group-name>
 Location:         <resource-group-location>
 Frontend URL:     https://<app-name>.azurewebsites.net
@@ -291,7 +305,7 @@ Save the following values for later workshop sections:
 
 | Value | Your deployment |
 | --- | --- |
-| Run identifier | |
+| Environment name (for example, `jrf01`) | |
 | Deployment stack | |
 | Frontend URL | |
 | Backend URL | |
@@ -347,7 +361,7 @@ be `true`.
 ## Deployment complete
 
 Your existing Support Desk application is now deployed and accessible in
-Azure. Keep the frontend URL, backend URL, and run identifier available for the
+Azure. Keep the frontend URL, backend URL, and environment name available for the
 remaining workshop sections.
 
 The AI feature is intentionally not present yet. A later section will extend

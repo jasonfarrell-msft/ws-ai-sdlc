@@ -5,7 +5,7 @@ param(
     [string] $ResourceGroup,
 
     [Parameter(Mandatory)]
-    [ValidatePattern('^[a-f0-9]{18}$')]
+    [ValidatePattern('^[a-z]{2,5}01$')]
     [string] $EnvironmentName,
 
     [Parameter(Mandatory)]

@@ -7,6 +7,9 @@ param(
     [ValidatePattern('^[a-zA-Z0-9-]{1,32}$')]
     [string] $Label = 'aisdlc',
 
+    [ValidatePattern('^[A-Za-z]{2,5}$')]
+    [string] $Initials,
+
     [switch] $SkipCodeDeploy
 )
 
@@ -20,8 +23,19 @@ if (-not $SkipCodeDeploy) {
 Select-AzureSubscription
 Resolve-ResourceLocation -ResourceGroup $ResourceGroup
 
-$runIdentifier = New-RunIdentifier
-$stackName = "azstk$runIdentifier"
+$resolvedInitials = $Initials
+while ([string]::IsNullOrWhiteSpace($resolvedInitials)) {
+    $entry = (Read-Host 'Enter your initials (2-5 letters)').Trim()
+    if ($entry -match '^[A-Za-z]{2,5}$') {
+        $resolvedInitials = $entry
+    }
+    else {
+        Write-Warning 'Initials must contain 2-5 letters only.'
+    }
+}
+
+$environmentName = "$($resolvedInitials.ToLowerInvariant())01"
+$stackName = "azstk$environmentName"
 $createdAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
 
 try {
@@ -34,7 +48,7 @@ if ([string]::IsNullOrWhiteSpace($deployedBy)) {
     $deployedBy = az account show --query user.name --output tsv
 }
 
-Write-Host "Deploying fresh run $runIdentifier to $ResourceGroup in $script:ResourceLocation."
+Write-Host "Deploying environment $environmentName to $ResourceGroup in $script:ResourceLocation."
 
 $templateFile = Join-Path $script:InfraDirectory 'main.bicep'
 $parametersFile = Join-Path $script:InfraDirectory 'main.parameters.json'
@@ -47,7 +61,7 @@ az stack group create `
     --parameters $parametersFile `
     --parameters `
         "location=$script:ResourceLocation" `
-        "environmentName=$runIdentifier" `
+        "environmentName=$environmentName" `
         "deploymentLabel=$Label" `
         "deployedBy=$deployedBy" `
         "createdAt=$createdAt" `
@@ -83,11 +97,11 @@ $frontendUrl = Get-StackOutput -ResourceGroup $ResourceGroup -StackName $stackNa
 
 if (-not $SkipCodeDeploy) {
     $backendDirectory = Join-Path $script:ProjectRoot 'src/backend'
-    $backendStageDirectory = Join-Path $script:InfraDirectory "backend-$runIdentifier"
-    $backendZipPath = Join-Path $script:InfraDirectory "backend-$runIdentifier.zip"
+    $backendStageDirectory = Join-Path $script:InfraDirectory "backend-$environmentName"
+    $backendZipPath = Join-Path $script:InfraDirectory "backend-$environmentName.zip"
     $frontendDirectory = Join-Path $script:ProjectRoot 'src/frontend'
     $frontendDistDirectory = Join-Path $frontendDirectory 'dist'
-    $frontendZipPath = Join-Path $script:InfraDirectory "frontend-$runIdentifier.zip"
+    $frontendZipPath = Join-Path $script:InfraDirectory "frontend-$environmentName.zip"
     $previousApiBaseUrl = $env:VITE_API_BASE_URL
     $locationPushed = $false
 
@@ -103,15 +117,10 @@ if (-not $SkipCodeDeploy) {
         Get-ChildItem -Path $backendStageDirectory -Force |
             Compress-Archive -DestinationPath $backendZipPath
 
-        az webapp deploy `
-            --subscription $script:SubscriptionId `
-            --resource-group $ResourceGroup `
-            --name $backendAppName `
-            --src-path $backendZipPath `
-            --type zip `
-            --clean true `
-            --restart true `
-            --output none
+        Invoke-ZipDeploy `
+            -ResourceGroup $ResourceGroup `
+            -AppName $backendAppName `
+            -ZipPath $backendZipPath
 
         Push-Location $frontendDirectory
         $locationPushed = $true
@@ -124,15 +133,10 @@ if (-not $SkipCodeDeploy) {
         Get-ChildItem -Path $frontendDistDirectory -Force |
             Compress-Archive -DestinationPath $frontendZipPath
 
-        az webapp deploy `
-            --subscription $script:SubscriptionId `
-            --resource-group $ResourceGroup `
-            --name $frontendAppName `
-            --src-path $frontendZipPath `
-            --type zip `
-            --clean true `
-            --restart true `
-            --output none
+        Invoke-ZipDeploy `
+            -ResourceGroup $ResourceGroup `
+            -AppName $frontendAppName `
+            -ZipPath $frontendZipPath
     }
     finally {
         if ($locationPushed) {
@@ -156,7 +160,7 @@ if (-not $SkipCodeDeploy) {
 Write-Host @"
 
 Deployment complete.
-Run identifier:  $runIdentifier
+Environment name: $environmentName
 Deployment stack: $stackName
 Resource group:   $ResourceGroup
 Location:         $script:ResourceLocation
@@ -166,5 +170,5 @@ Frontend App:     $frontendAppName
 Backend App:      $backendAppName
 
 To remove only this generated environment:
-pwsh ./infra/destroy.ps1 -ResourceGroup '$ResourceGroup' -EnvironmentName '$runIdentifier' -ConfirmEnvironment '$runIdentifier'
+pwsh ./infra/destroy.ps1 -ResourceGroup '$ResourceGroup' -EnvironmentName '$environmentName' -ConfirmEnvironment '$environmentName'
 "@
