@@ -53,6 +53,26 @@ if ($isWorkshopFork -ne 'true') {
     Write-Warning "Fork validation was skipped for '$Repository'. This testing-only override must not be used for participant setup."
 }
 
+try {
+    $oidcConfigurationJson = gh api "repos/$Repository/actions/oidc/customization/sub"
+    $oidcConfiguration = ($oidcConfigurationJson -join [Environment]::NewLine) |
+        ConvertFrom-Json -Depth 10
+}
+catch {
+    throw "GitHub CLI could not read the OIDC subject configuration for '$Repository'."
+}
+if ($oidcConfiguration.use_default -ne $true) {
+    throw "Repository '$Repository' uses a custom OIDC subject template, which this workshop setup does not support."
+}
+
+$oidcSubjectPrefix = [string]$oidcConfiguration.sub_claim_prefix
+if ([string]::IsNullOrWhiteSpace($oidcSubjectPrefix)) {
+    $oidcSubjectPrefix = "repo:$Repository"
+}
+if (-not $oidcSubjectPrefix.StartsWith('repo:', [StringComparison]::Ordinal)) {
+    throw "GitHub returned an unexpected OIDC subject prefix for '$Repository'."
+}
+
 gh api `
     --method PUT `
     "repos/$Repository/actions/permissions" `
@@ -184,7 +204,7 @@ function Ensure-FederatedCredential {
         [string] $GitHubEnvironment
     )
 
-    $expectedSubject = "repo:${Repository}:environment:${GitHubEnvironment}"
+    $expectedSubject = "${oidcSubjectPrefix}:environment:${GitHubEnvironment}"
     try {
         $existingSubject = az identity federated-credential show `
             --subscription $script:SubscriptionId `
@@ -210,7 +230,15 @@ function Ensure-FederatedCredential {
             --output none
     }
     elseif ($existingSubject -ne $expectedSubject) {
-        throw "Federated credential '$CredentialName' has an unexpected subject."
+        az identity federated-credential update `
+            --subscription $script:SubscriptionId `
+            --resource-group $ResourceGroup `
+            --identity-name $IdentityName `
+            --name $CredentialName `
+            --issuer 'https://token.actions.githubusercontent.com' `
+            --subject $expectedSubject `
+            --audiences 'api://AzureADTokenExchange' `
+            --output none
     }
 }
 

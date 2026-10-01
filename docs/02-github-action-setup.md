@@ -130,7 +130,10 @@ The script creates and configures:
 The script derives the backend URL as
 `https://<backend-app-name>.azurewebsites.net`. It also verifies that the target
 is your fork of the workshop repository, confirms that you enabled Actions for
-the fork, configures its Actions permissions, and enables both workflows.
+the fork, configures its Actions permissions, and enables both workflows. When
+GitHub uses immutable OIDC subjects, the script reads the repository's
+immutable owner and repository IDs and configures the Azure federated
+credentials to match.
 
 > [!WARNING]
 > Maintainers testing this setup against the source repository can temporarily

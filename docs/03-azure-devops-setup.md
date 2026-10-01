@@ -204,7 +204,22 @@ In the Azure DevOps browser window:
 4. Select the GitHub account that owns your fork and authenticate if prompted.
 5. In **Add GitHub Repositories**, clear every repository except
    `$GITHUB_REPOSITORY`, then select **Save**.
-6. On GitHub, select **Approve, Install, & Authorize** for the Azure Boards app.
+6. Complete the Azure Boards app installation on GitHub:
+   1. After you select **Save** in Azure DevOps, GitHub should open the
+      **Install & Authorize Azure Boards** page. If it does not open, go to the
+      [Azure Boards app in the GitHub Marketplace](https://github.com/marketplace/azure-boards),
+      then under **Plans and pricing** > **Free**, select **Install**.
+   2. Select the personal account or organization that owns
+      `$GITHUB_REPOSITORY`.
+   3. Under **Repository access**, select **Only select repositories**, then
+      select only `$GITHUB_REPOSITORY`.
+   4. At the bottom of the page, select **Approve, Install, & Authorize**. The
+      button may appear as **Install & Authorize** if no separate organization
+      approval is required.
+   5. If GitHub shows **Request** instead, submit the request and ask an
+      organization owner to approve it. The owner can open the organization,
+      select **Settings** > **GitHub Apps**, and review the pending Azure Boards
+      installation request.
 7. Return to Azure DevOps and confirm that the connection lists your fork.
 
 GitHub organizations may require an organization owner to approve the app

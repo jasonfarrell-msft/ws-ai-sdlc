@@ -241,9 +241,13 @@ environment-scoped federated credential to each deployment identity with:
 - Issuer: `https://token.actions.githubusercontent.com`
 - Audience: `api://AzureADTokenExchange`
 - Backend subject:
-  `repo:<fork-owner>/ws-ai-sdlc:environment:workshop-backend`
+  `<repository-oidc-subject-prefix>:environment:workshop-backend`
 - Frontend subject:
-  `repo:<fork-owner>/ws-ai-sdlc:environment:workshop-frontend`
+  `<repository-oidc-subject-prefix>:environment:workshop-frontend`
+
+The configuration script reads the subject prefix from GitHub so it supports
+both legacy name-based subjects and immutable subjects containing owner and
+repository IDs.
 
 Under **Deployment branches and tags**, choose **Selected branches and tags**
 and add only `main` for both environments. The workflows also enforce
