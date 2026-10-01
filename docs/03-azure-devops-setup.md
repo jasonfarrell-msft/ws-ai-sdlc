@@ -254,32 +254,6 @@ The command must return the new work item without requiring another sign-in.
 This verifies the identity, organization default, project default, and Boards
 permissions that local tools will use.
 
-## 8. Use work item links in GitHub
-
-Include the Azure Boards work item ID in a commit message or pull request
-description:
-
-```text
-AB#<work-item-id>
-```
-
-For the task created in the previous step, PowerShell can generate the link
-text:
-
-```powershell
-"AB#$WORK_ITEM_ID"
-```
-
-After a referenced commit or pull request is pushed to the connected fork,
-open the work item in Azure Boards and check its **Development** section. The
-GitHub commit or pull request should appear there.
-
-An `AB#<work-item-id>` reference in a pull request title or comment does not
-create a work item link.
-
-Use the same `AB#<work-item-id>` syntax in later workshop parts so code changes
-remain traceable to their Azure Boards work.
-
 ## Azure Boards setup complete
 
 Your Azure DevOps project is connected to your GitHub fork, and your local
