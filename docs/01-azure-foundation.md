@@ -241,7 +241,7 @@ For non-interactive use, pass the initials without the suffix:
 ```powershell
 pwsh ./infra/deploy.ps1 `
   -ResourceGroup $RESOURCE_GROUP `
-  -Initials JRF
+  -Label JRF
 ```
 
 The deployment usually takes 10-20 minutes. The script:
