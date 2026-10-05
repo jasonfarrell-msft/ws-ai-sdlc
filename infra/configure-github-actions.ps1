@@ -9,12 +9,20 @@ param(
     [string] $EnvironmentName,
 
     [Parameter(Mandatory)]
-    [ValidatePattern('^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')]
-    [string] $Repository,
+    [ValidateNotNullOrEmpty()]
+    [string] $ContainerRegistry,
 
     [Parameter(Mandatory)]
     [ValidateNotNullOrEmpty()]
-    [string] $StaticWebApp,
+    [string] $FrontendApp,
+
+    [Parameter(Mandatory)]
+    [ValidateNotNullOrEmpty()]
+    [string] $BackendApp,
+
+    [Parameter(Mandatory)]
+    [ValidatePattern('^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')]
+    [string] $Repository,
 
     [switch] $SkipForkValidation
 )
@@ -22,7 +30,7 @@ param(
 . (Join-Path $PSScriptRoot 'lib/Common.ps1')
 
 $deploymentEnvironment = 'workshop-deployment'
-$deploymentRoleName = "Support Desk SWA Deployer $EnvironmentName"
+$deploymentRoleName = "Support Desk Container App Deployer $EnvironmentName"
 $sourceRepository = 'jasonfarrell-msft/ws-ai-sdlc'
 $workflowPath = '.github/workflows/deploy.yml'
 
@@ -130,7 +138,7 @@ if ($workflowState -ne 'active') {
     throw "Workflow '$workflowPath' is not active in '$Repository'."
 }
 
-$identityName = "id-gha-swa-$EnvironmentName"
+$identityName = "id-gha-ca-$EnvironmentName"
 
 try {
     $identityId = az identity show `
@@ -201,10 +209,9 @@ $principalId = az identity show `
     --name $identityName `
     --query principalId `
     --output tsv
-$staticWebAppId = az staticwebapp show `
+$resourceGroupId = az group show `
     --subscription $script:SubscriptionId `
-    --resource-group $ResourceGroup `
-    --name $StaticWebApp `
+    --name $ResourceGroup `
     --query id `
     --output tsv
 
@@ -212,7 +219,7 @@ $assignmentCount = az role assignment list `
     --subscription $script:SubscriptionId `
     --assignee-object-id $principalId `
     --role $deploymentRoleName `
-    --scope $staticWebAppId `
+    --scope $resourceGroupId `
     --query 'length(@)' `
     --output tsv
 if ($assignmentCount -eq '0') {
@@ -223,13 +230,13 @@ if ($assignmentCount -eq '0') {
                 --assignee-object-id $principalId `
                 --assignee-principal-type ServicePrincipal `
                 --role $deploymentRoleName `
-                --scope $staticWebAppId `
+                --scope $resourceGroupId `
                 --output none
             break
         }
         catch {
             if ($attempt -eq 6) {
-                throw "Could not assign '$deploymentRoleName' at scope '$staticWebAppId'. Confirm that deploy.ps1 provisioned the matching custom role."
+                throw "Could not assign '$deploymentRoleName' at scope '$resourceGroupId'. Confirm that deploy.ps1 provisioned the matching custom role."
             }
             Write-Host 'Waiting for managed identity propagation before retrying role assignment.'
             Start-Sleep -Seconds 10
@@ -281,7 +288,9 @@ $environmentVariables = @{
     AZURE_TENANT_ID = $tenantId
     AZURE_SUBSCRIPTION_ID = $script:SubscriptionId
     AZURE_RESOURCE_GROUP = $ResourceGroup
-    AZURE_STATIC_WEB_APP = $StaticWebApp
+    AZURE_CONTAINER_REGISTRY = $ContainerRegistry
+    AZURE_FRONTEND_APP = $FrontendApp
+    AZURE_BACKEND_APP = $BackendApp
 }
 foreach ($variable in $environmentVariables.GetEnumerator()) {
     gh variable set $variable.Key `
@@ -296,7 +305,10 @@ GitHub Actions access configured.
 Repository:             $Repository
 Deployment environment: $deploymentEnvironment
 Deployment identity:    $identityName
-Static Web App:          $StaticWebApp
+Deployment scope:        $resourceGroupId
+Container Registry:      $ContainerRegistry
+Frontend Container App:  $FrontendApp
+Backend Container App:   $BackendApp
 
-Pushes to main now validate and atomically deploy the frontend and API.
+Pushes to main now validate, build, and deploy the frontend and API images.
 "@

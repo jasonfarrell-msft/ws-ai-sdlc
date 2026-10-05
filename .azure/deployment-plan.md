@@ -5,82 +5,86 @@
 ## Purpose
 
 Deploy the Support Desk Simulator into a dedicated user-provided resource group
-through a repeatable deployment stack. Replace the two App Service ZIP
-deployments with one atomic Azure Static Web Apps deployment.
+through a repeatable deployment stack. Host both frontend and backend in
+separate Azure Container Apps, replacing Static Web Apps and managed Functions.
 
 ## Application
 
 | Component | Technology | Azure target |
 | --- | --- | --- |
-| Frontend | React 19, TypeScript, Vite | Azure Static Web Apps Free |
-| Backend | Python 3.11, FastAPI | Managed Azure Functions API |
+| Frontend | React 19, TypeScript, Vite, nginx | Azure Container Apps |
+| Backend | Python 3.11, FastAPI, Uvicorn | Azure Container Apps |
 
-The managed API uses the Azure Functions ASGI adapter, preserving the existing
-FastAPI routes and tests. Static Web Apps exposes it through the fixed
-same-origin `/api` route.
+Uvicorn serves the existing FastAPI routes directly. nginx exposes the same-origin
+`/api` route and verifies the backend HTTPS certificate and SNI/Host routing.
 
 ## Infrastructure
 
 The Bicep deployment creates:
 
-- An Azure Static Web App with staging environments disabled
+- A shared Azure Container Apps environment and two public HTTPS apps
+- An ACR Basic registry with admin/anonymous access disabled
+- System-assigned app identities with registry-scoped `AcrPull`
 - A Log Analytics workspace with 30-day retention
 - Workspace-based Application Insights
-- Static Web Apps application settings that connect the managed API to
-  Application Insights
-- An environment-specific custom deployment role with only resource-group
-  read, Static Web App read, and deployment-token retrieval actions
+- The Application Insights connection string in the backend's environment;
+  SDK request instrumentation remains a separate future enhancement
+- An environment-specific custom deployment role for ACR source uploads,
+  scheduled builds, run status/log access, and Container App updates
 
-Static Web Apps provides managed HTTPS. The workshop intentionally uses a
-public endpoint because browser participants access it directly. Private
+Container Apps provides managed HTTPS. Both apps have public endpoints as
+requested; browser participants normally use the frontend API proxy. Private
 networking is outside this non-production workshop baseline.
 
 ## Deployment flow
 
 1. Compile Bicep and run a resource-group what-if.
 2. Create or update the resource-group deployment stack.
-3. Vendor Python 3.11-compatible Linux dependencies into a temporary API
-   package.
-4. Build the Vite frontend.
-5. Retrieve the generated deployment token into process memory.
-6. Upload the frontend and managed API as one deployment.
-7. Clear the token, remove the temporary package, and verify the application
-   root and `/api/health`.
+3. Build the backend Linux/AMD64 image in ACR and update its app.
+4. Build the frontend Linux/AMD64 nginx image in ACR and update its app.
+5. Verify direct backend health, proxied `/api/health`, and the application root.
 
-GitHub follows the same atomic upload model. It authenticates to Azure through
-an environment-scoped OIDC credential, retrieves and masks the deployment token
-at run time, and never stores an Azure client secret or deployment token.
+GitHub uses the same sequential update model and tags both images with the full
+commit SHA. It authenticates using environment-scoped OIDC; no deployment token,
+registry password, or client secret is stored. Updates are not atomic.
 
 ## Security and cost decisions
 
 - The GitHub identity receives the environment-specific custom deployment role
-  only on the generated Static Web App.
+  in the dedicated workshop resource group; each app's pull role is registry-scoped.
 - The OIDC subject is limited to the `workshop-deployment` environment, whose
   branch policy allows only `main`.
 - Pull request jobs have read-only repository access and no Azure OIDC
   permission.
-- Static Web Apps route and response-header configuration is versioned with the
+- nginx route and response-header configuration is versioned with the
   frontend.
-- The Free plan is appropriate for this synthetic workshop and removes the
-  always-on S1 App Service cost.
+- Both apps use 0.5 vCPU / 1 GiB, with one minimum replica; the frontend can scale
+  to two. The backend stays at one replica/worker because its data is process-local.
+- Container compute, ACR storage/builds, and log ingestion can incur charges.
 - Demo identity headers remain intentionally spoofable and are not production
   authentication.
-- Process-local ticket state resets whenever the managed API instance restarts
+- Process-local ticket state resets whenever the API container restarts
   and is not shared across instances.
 
 ## Validation checklist
 
-- [x] Python 3.11-compatible Linux dependency staging succeeds.
-- [x] FastAPI and Functions adapter tests pass.
-- [ ] React type checking and production build succeed.
-- [ ] Static Web Apps configuration is copied to `dist`.
-- [x] Bicep compilation succeeds.
+- [x] FastAPI regression tests pass (8 tests on the existing local Python environment).
+- [ ] Frontend type checking and production build succeed.
+- [ ] Docker images build and Compose smoke tests pass.
+- [x] Bicep compilation succeeds (three documented `BCP081` API type warnings remain).
 - [x] PowerShell deployment scripts parse successfully.
 - [ ] Resource-group ARM what-if succeeds in a target subscription.
 - [x] GitHub Actions workflow syntax is valid.
 - [x] Security and architecture review is complete.
 
-The local npm package-feed proxy returned 404 for existing locked frontend
-packages, so the unchanged frontend source could not be rebuilt in this
-environment. The GitHub workflow retains the locked `npm ci` build as a
-required deployment prerequisite.
+The exact nginx configuration and entrypoint passed four integration smoke tests
+against the local API with existing frontend assets. Missing and invalid
+`BACKEND_URL` values are rejected. Compose configuration parses successfully.
+These checks do not substitute for building both images from scratch.
+
+Local full builds are blocked by the corporate npm feed returning 404 for
+`yallist@3.1.1` and external Python package downloads failing TLS connections.
+Local commands must honor the global corporate registry policy; Compose can
+receive its non-secret registry URL through `NPM_CONFIG_REGISTRY`. GitHub-hosted
+validation and Azure remote builds use public npm. The workflow gates Azure
+deployment on frontend build and full Docker Compose integration tests.

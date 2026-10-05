@@ -5,7 +5,7 @@
     "deploymentLabel": {
       "value": "aisdlc"
     },
-    "staticWebAppLocation": {
+    "location": {
       "value": "eastus2"
     }
   }

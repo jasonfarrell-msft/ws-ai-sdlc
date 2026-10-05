@@ -17,30 +17,6 @@ param(
 
 Assert-Command -Name az
 Assert-AzureCliVersion
-if (-not $SkipCodeDeploy) {
-    Assert-Command -Name npm
-    Assert-Command -Name swa
-    $pythonCommand = if (Get-Command python3.11 -ErrorAction SilentlyContinue) {
-        'python3.11'
-    }
-    elseif (Get-Command python -ErrorAction SilentlyContinue) {
-        'python'
-    }
-    else {
-        throw "Required command 'python3.11' is not installed."
-    }
-    $pythonVersion = (& $pythonCommand -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")').Trim()
-    if ($pythonVersion -ne '3.11') {
-        throw "Python 3.11 is required to package the managed API. '$pythonCommand' reports Python $pythonVersion."
-    }
-    $swaVersionOutput = (swa --version).Trim()
-    if ($swaVersionOutput -notmatch '(?<version>\d+\.\d+\.\d+)') {
-        throw "Could not parse the Azure Static Web Apps CLI version from '$swaVersionOutput'."
-    }
-    if ([version]$Matches.version -lt [version]'2.0.10') {
-        throw 'Azure Static Web Apps CLI 2.0.10 or newer is required.'
-    }
-}
 Select-AzureSubscription
 Resolve-ResourceLocation -ResourceGroup $ResourceGroup
 
@@ -74,6 +50,19 @@ Write-Host "Deploying environment $environmentName to $ResourceGroup."
 $templateFile = Join-Path $script:InfraDirectory 'main.bicep'
 $parametersFile = Join-Path $script:InfraDirectory 'main.parameters.json'
 
+$imageParameters = @()
+foreach ($component in @(@{ Name = "ca-api-$environmentName"; Parameter = 'backendImage' },
+                         @{ Name = "ca-web-$environmentName"; Parameter = 'frontendImage' })) {
+    $currentImage = az containerapp list `
+        --subscription $script:SubscriptionId `
+        --resource-group $ResourceGroup `
+        --query "[?name=='$($component.Name)'].properties.template.containers[0].image | [0]" `
+        --output tsv
+    if (-not [string]::IsNullOrWhiteSpace($currentImage)) {
+        $imageParameters += "$($component.Parameter)=$currentImage"
+    }
+}
+
 az stack group create `
     --subscription $script:SubscriptionId `
     --resource-group $ResourceGroup `
@@ -86,15 +75,28 @@ az stack group create `
         "deploymentLabel=$Label" `
         "deployedBy=$deployedBy" `
         "createdAt=$createdAt" `
+        @imageParameters `
     --action-on-unmanage deleteAll `
     --deny-settings-mode None `
     --yes `
     --output none
 
-$staticWebAppName = Get-StackOutput `
+$registryName = Get-StackOutput `
     -ResourceGroup $ResourceGroup `
     -StackName $stackName `
-    -OutputName staticWebAppName
+    -OutputName containerRegistryName
+$registryLoginServer = Get-StackOutput `
+    -ResourceGroup $ResourceGroup `
+    -StackName $stackName `
+    -OutputName containerRegistryLoginServer
+$backendAppName = Get-StackOutput `
+    -ResourceGroup $ResourceGroup `
+    -StackName $stackName `
+    -OutputName backendAppName
+$frontendAppName = Get-StackOutput `
+    -ResourceGroup $ResourceGroup `
+    -StackName $stackName `
+    -OutputName frontendAppName
 $applicationUrl = Get-StackOutput `
     -ResourceGroup $ResourceGroup `
     -StackName $stackName `
@@ -132,77 +134,64 @@ function Test-ApplicationEndpoint {
 
 if (-not $SkipCodeDeploy) {
     $backendDirectory = Join-Path $script:ProjectRoot 'src/backend'
-    $backendStageDirectory = Join-Path $script:InfraDirectory "backend-$environmentName"
     $frontendDirectory = Join-Path $script:ProjectRoot 'src/frontend'
-    $previousDeploymentToken = $env:SWA_CLI_DEPLOYMENT_TOKEN
-    $locationPushed = $false
+    $imageTag = "$environmentName-$([DateTime]::UtcNow.ToString('yyyyMMddHHmmss'))"
 
-    try {
-        if (Test-Path $backendStageDirectory) {
-            Remove-Item $backendStageDirectory -Recurse -Force
-        }
-        New-Item -ItemType Directory -Path $backendStageDirectory | Out-Null
-        Copy-Item `
-            -Path (Join-Path $backendDirectory 'app') `
-            -Destination $backendStageDirectory `
-            -Recurse
-        foreach ($fileName in 'function_app.py', 'host.json', 'requirements.txt') {
-            Copy-Item `
-                -Path (Join-Path $backendDirectory $fileName) `
-                -Destination $backendStageDirectory
-        }
-        & $pythonCommand -m pip install `
-            --disable-pip-version-check `
-            --target (Join-Path $backendStageDirectory '.python_packages/lib/site-packages') `
-            --platform manylinux2014_x86_64 `
-            --python-version 3.11 `
-            --implementation cp `
-            --only-binary=:all: `
-            --requirement (Join-Path $backendDirectory 'requirements.txt')
+    Write-Host "Building the API image in Azure Container Registry '$registryName'."
+    az acr build `
+        --registry $registryName `
+        --subscription $script:SubscriptionId `
+        --image "support-desk-api:$imageTag" `
+        --file (Join-Path $backendDirectory 'Dockerfile') `
+        $backendDirectory `
+        --platform linux/amd64 `
+        --output none
 
-        Push-Location $frontendDirectory
-        $locationPushed = $true
-        npm ci --replace-registry-host=never
-        npm run build
+    Write-Host "Updating the API Container App."
+    az containerapp update `
+        --subscription $script:SubscriptionId `
+        --resource-group $ResourceGroup `
+        --name $backendAppName `
+        --image "$registryLoginServer/support-desk-api:$imageTag" `
+        --output none
 
-        $env:SWA_CLI_DEPLOYMENT_TOKEN = az staticwebapp secrets list `
-            --subscription $script:SubscriptionId `
-            --resource-group $ResourceGroup `
-            --name $staticWebAppName `
-            --query properties.apiKey `
-            --output tsv
-        if ([string]::IsNullOrWhiteSpace($env:SWA_CLI_DEPLOYMENT_TOKEN)) {
-            throw "Azure did not return a deployment token for '$staticWebAppName'."
-        }
+    Write-Host "Building the frontend image in Azure Container Registry '$registryName'."
+    az acr build `
+        --registry $registryName `
+        --subscription $script:SubscriptionId `
+        --image "support-desk-frontend:$imageTag" `
+        --file (Join-Path $frontendDirectory 'Dockerfile') `
+        $frontendDirectory `
+        --platform linux/amd64 `
+        --output none
 
-        swa deploy ./dist `
-            --api-location $backendStageDirectory `
-            --swa-config-location ./dist `
-            --app-name $staticWebAppName `
-            --env production
-    }
-    finally {
-        if ($locationPushed) {
-            Pop-Location
-        }
-        $env:SWA_CLI_DEPLOYMENT_TOKEN = $previousDeploymentToken
-        if (Test-Path $backendStageDirectory) {
-            Remove-Item $backendStageDirectory -Recurse -Force
-        }
-    }
+    Write-Host "Updating the frontend Container App."
+    az containerapp update `
+        --subscription $script:SubscriptionId `
+        --resource-group $ResourceGroup `
+        --name $frontendAppName `
+        --image "$registryLoginServer/support-desk-frontend:$imageTag" `
+        --output none
 
+    $backendUrl = Get-StackOutput `
+        -ResourceGroup $ResourceGroup `
+        -StackName $stackName `
+        -OutputName backendUrl
+    Test-ApplicationEndpoint -Uri "$backendUrl/api/health" -HealthEndpoint
     Test-ApplicationEndpoint -Uri "$applicationUrl/api/health" -HealthEndpoint
     Test-ApplicationEndpoint -Uri $applicationUrl
 }
 
 Write-Host @"
 
-Deployment complete.
+Infrastructure ready$(if ($SkipCodeDeploy) { ' (application images were not deployed)' } else { '; application deployment verified' }).
 Environment name:  $environmentName
 Deployment stack: $stackName
 Resource group:    $ResourceGroup
 Application URL:   $applicationUrl
-Static Web App:    $staticWebAppName
+Frontend App:       $frontendAppName
+Backend App:        $backendAppName
+Container Registry: $registryName
 
 To remove only this generated environment:
 pwsh ./infra/destroy.ps1 -ResourceGroup '$ResourceGroup' -EnvironmentName '$environmentName' -ConfirmEnvironment '$environmentName'

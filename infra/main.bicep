@@ -1,17 +1,7 @@
 targetScope = 'resourceGroup'
 
-@description('Azure region for Log Analytics and Application Insights. Defaults to the resource group location.')
+@description('Azure region for the Container Apps environment and monitoring resources.')
 param location string = resourceGroup().location
-
-@allowed([
-  'centralus'
-  'eastasia'
-  'eastus2'
-  'westeurope'
-  'westus2'
-])
-@description('Azure Static Web Apps deployment region.')
-param staticWebAppLocation string = 'eastus2'
 
 @minLength(4)
 @maxLength(32)
@@ -31,7 +21,13 @@ param deployedBy string = 'azure-cli'
 @description('ISO 8601 timestamp when the deployment was created.')
 param createdAt string = utcNow()
 
-var resourceToken = uniqueString(subscription().id, resourceGroup().id, staticWebAppLocation, environmentName)
+@description('API image to retain during infrastructure updates; replaced by deploy.ps1 after the first build.')
+param backendImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+
+@description('Frontend image to retain during infrastructure updates; replaced by deploy.ps1 after the first build.')
+param frontendImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+
+var resourceToken = uniqueString(subscription().id, resourceGroup().id, environmentName)
 var commonTags = {
   'app-onboard-skill': 'true'
   'app-onboard-session-id': sessionId
@@ -46,8 +42,11 @@ var commonTags = {
 
 var logAnalyticsName = 'azlaw${resourceToken}'
 var applicationInsightsName = 'azai${resourceToken}'
-var staticWebAppName = 'azswa${resourceToken}'
-var deploymentRoleName = 'Support Desk SWA Deployer ${environmentName}'
+var registryName = 'acr${resourceToken}'
+var managedEnvironmentName = 'cae${resourceToken}'
+var backendAppName = 'ca-api-${environmentName}'
+var frontendAppName = 'ca-web-${environmentName}'
+var deploymentRoleName = 'Support Desk Container App Deployer ${environmentName}'
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2026-03-01' = {
   name: logAnalyticsName
@@ -77,46 +76,177 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
-resource staticWebApp 'Microsoft.Web/staticSites@2024-11-01' = {
-  name: staticWebAppName
-  location: staticWebAppLocation
+resource registry 'Microsoft.ContainerRegistry/registries@2025-11-01' = {
+  name: registryName
+  location: location
   tags: commonTags
   sku: {
-    name: 'Free'
-    tier: 'Free'
+    name: 'Basic'
   }
   properties: {
+    adminUserEnabled: false
+    anonymousPullEnabled: false
     publicNetworkAccess: 'Enabled'
-    stagingEnvironmentPolicy: 'Disabled'
-    buildProperties: {
-      appLocation: 'src/frontend'
-      apiLocation: 'src/backend'
-      outputLocation: 'dist'
-      skipGithubActionWorkflowGeneration: true
+  }
+}
+
+resource managedEnvironment 'Microsoft.App/managedEnvironments@2026-07-01' = {
+  name: managedEnvironmentName
+  location: location
+  tags: commonTags
+  properties: {
+    appLogsConfiguration: {
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: logAnalytics.properties.customerId
+        sharedKey: logAnalytics.listKeys().primarySharedKey
+      }
     }
   }
 }
 
-resource staticWebAppSettings 'Microsoft.Web/staticSites/config@2024-11-01' = {
-  parent: staticWebApp
-  name: 'appsettings'
+resource backendApp 'Microsoft.App/containerApps@2026-07-01' = {
+  name: backendAppName
+  location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
+  tags: commonTags
   properties: {
-    APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString
+    managedEnvironmentId: managedEnvironment.id
+    configuration: {
+      activeRevisionsMode: 'Single'
+      ingress: {
+        external: true
+        targetPort: 80
+        transport: 'auto'
+        allowInsecure: false
+      }
+      registries: [
+        {
+          server: registry.properties.loginServer
+          identity: 'system'
+        }
+      ]
+    }
+    template: {
+      containers: [
+        {
+          name: 'api'
+          image: backendImage
+          env: [
+            {
+              name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+              value: applicationInsights.properties.ConnectionString
+            }
+          ]
+          resources: {
+            cpu: json('0.5')
+            memory: '1Gi'
+          }
+        }
+      ]
+      scale: {
+        minReplicas: 1
+        maxReplicas: 1
+      }
+    }
+  }
+}
+
+resource frontendApp 'Microsoft.App/containerApps@2026-07-01' = {
+  name: frontendAppName
+  location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
+  tags: commonTags
+  properties: {
+    managedEnvironmentId: managedEnvironment.id
+    configuration: {
+      activeRevisionsMode: 'Single'
+      ingress: {
+        external: true
+        targetPort: 80
+        transport: 'auto'
+        allowInsecure: false
+      }
+      registries: [
+        {
+          server: registry.properties.loginServer
+          identity: 'system'
+        }
+      ]
+    }
+    template: {
+      containers: [
+        {
+          name: 'web'
+          image: frontendImage
+          env: [
+            {
+              name: 'BACKEND_URL'
+              value: 'https://${backendApp.properties.configuration.ingress.fqdn}'
+            }
+          ]
+          resources: {
+            cpu: json('0.5')
+            memory: '1Gi'
+          }
+        }
+      ]
+      scale: {
+        minReplicas: 1
+        maxReplicas: 2
+      }
+    }
+  }
+}
+
+resource backendPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(registry.id, backendApp.id, 'acrpull')
+  scope: registry
+  properties: {
+    principalId: backendApp.identity.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+    )
+  }
+}
+
+resource frontendPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(registry.id, frontendApp.id, 'acrpull')
+  scope: registry
+  properties: {
+    principalId: frontendApp.identity.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+    )
   }
 }
 
 resource deploymentRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' = {
-  name: guid(resourceGroup().id, environmentName, 'static-web-app-deployer')
+  name: guid(resourceGroup().id, environmentName, 'container-app-deployer')
   properties: {
     roleName: deploymentRoleName
-    description: 'Read the generated Static Web App and retrieve its deployment token.'
+    description: 'Build images in the generated registry and update the generated Container Apps.'
     type: 'CustomRole'
     permissions: [
       {
         actions: [
           'Microsoft.Resources/subscriptions/resourceGroups/read'
-          'Microsoft.Web/staticSites/read'
-          'Microsoft.Web/staticSites/listsecrets/action'
+          'Microsoft.ContainerRegistry/registries/read'
+          'Microsoft.ContainerRegistry/registries/listBuildSourceUploadUrl/action'
+          'Microsoft.ContainerRegistry/registries/scheduleRun/action'
+          'Microsoft.ContainerRegistry/registries/runs/read'
+          'Microsoft.ContainerRegistry/registries/runs/listLogSasUrl/action'
+          'Microsoft.App/containerApps/read'
+          'Microsoft.App/containerApps/write'
+          'Microsoft.App/managedEnvironments/read'
         ]
         notActions: []
         dataActions: []
@@ -131,6 +261,11 @@ resource deploymentRole 'Microsoft.Authorization/roleDefinitions@2022-04-01' = {
 
 output environmentName string = environmentName
 output resourceToken string = resourceToken
-output staticWebAppName string = staticWebApp.name
-output applicationUrl string = 'https://${staticWebApp.properties.defaultHostname}'
+output containerRegistryName string = registry.name
+output containerRegistryLoginServer string = registry.properties.loginServer
+output containerEnvironmentName string = managedEnvironment.name
+output backendAppName string = backendApp.name
+output frontendAppName string = frontendApp.name
+output backendUrl string = 'https://${backendApp.properties.configuration.ingress.fqdn}'
+output applicationUrl string = 'https://${frontendApp.properties.configuration.ingress.fqdn}'
 output deploymentRoleName string = deploymentRole.properties.roleName

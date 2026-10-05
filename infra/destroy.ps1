@@ -30,30 +30,36 @@ az stack group show `
     --name $stackName `
     --output none
 
-$staticWebAppName = Get-StackOutput `
-    -ResourceGroup $ResourceGroup `
-    -StackName $stackName `
-    -OutputName staticWebAppName
-$staticWebAppId = az staticwebapp show `
+$deploymentRoleName = "Support Desk Container App Deployer $EnvironmentName"
+$identityName = "id-gha-ca-$EnvironmentName"
+$identityId = az identity list `
     --subscription $script:SubscriptionId `
     --resource-group $ResourceGroup `
-    --name $staticWebAppName `
-    --query id `
+    --query "[?name=='$identityName'].id | [0]" `
     --output tsv
-$deploymentRoleName = "Support Desk SWA Deployer $EnvironmentName"
-$assignmentIds = @(
-    az role assignment list `
+
+if (-not [string]::IsNullOrWhiteSpace($identityId)) {
+    $principalId = az identity show `
         --subscription $script:SubscriptionId `
-        --scope $staticWebAppId `
-        --role $deploymentRoleName `
-        --query '[].id' `
+        --resource-group $ResourceGroup `
+        --name $identityName `
+        --query principalId `
         --output tsv
-)
-foreach ($assignmentId in $assignmentIds) {
-    if (-not [string]::IsNullOrWhiteSpace($assignmentId)) {
-        az role assignment delete `
+    $assignmentIds = @(
+        az role assignment list `
             --subscription $script:SubscriptionId `
-            --ids $assignmentId
+            --assignee-object-id $principalId `
+            --role $deploymentRoleName `
+            --scope "/subscriptions/$($script:SubscriptionId)/resourceGroups/$ResourceGroup" `
+            --query '[].id' `
+            --output tsv
+    )
+    foreach ($assignmentId in $assignmentIds) {
+        if (-not [string]::IsNullOrWhiteSpace($assignmentId)) {
+            az role assignment delete `
+                --subscription $script:SubscriptionId `
+                --ids $assignmentId
+        }
     }
 }
 
@@ -64,12 +70,6 @@ az stack group delete `
     --action-on-unmanage deleteAll `
     --yes
 
-$identityName = "id-gha-swa-$EnvironmentName"
-$identityId = az identity list `
-    --subscription $script:SubscriptionId `
-    --resource-group $ResourceGroup `
-    --query "[?name == '$identityName'].id | [0]" `
-    --output tsv
 if (-not [string]::IsNullOrWhiteSpace($identityId)) {
     az identity delete `
         --subscription $script:SubscriptionId `
