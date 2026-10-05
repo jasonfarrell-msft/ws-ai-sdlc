@@ -1,97 +1,86 @@
 # Azure deployment plan
 
-**Status:** Validated
+**Status:** Implementation validated locally; Azure what-if required
 
 ## Purpose
 
-Deploy the Support Desk Simulator baseline into a dedicated resource group
-created by the user. The deployment uses the resource group's location,
-remains resource-group scoped, and creates a separately removable deployment
-stack for each workshop environment.
+Deploy the Support Desk Simulator into a dedicated user-provided resource group
+through a repeatable deployment stack. Replace the two App Service ZIP
+deployments with one atomic Azure Static Web Apps deployment.
 
 ## Application
 
 | Component | Technology | Azure target |
 | --- | --- | --- |
-| Frontend | React 19, TypeScript, Vite | Linux App Service S1 |
-| Backend | Python 3.13, FastAPI | Linux App Service S1 |
+| Frontend | React 19, TypeScript, Vite | Azure Static Web Apps Free |
+| Backend | Python 3.11, FastAPI | Managed Azure Functions API |
 
-The application uses only synthetic, process-local data. It deliberately has no
-AI feature, durable database, or production authentication.
+The managed API uses the Azure Functions ASGI adapter, preserving the existing
+FastAPI routes and tests. Static Web Apps exposes it through the fixed
+same-origin `/api` route.
 
 ## Infrastructure
 
 The Bicep deployment creates:
 
-- A shared Linux S1 App Service plan
-- A Node.js App Service for the compiled SPA
-- A Python App Service for the FastAPI backend
-- A Log Analytics workspace and workspace-based Application Insights
-- Diagnostic settings for both App Services
+- An Azure Static Web App with staging environments disabled
+- A Log Analytics workspace with 30-day retention
+- Workspace-based Application Insights
+- Static Web Apps application settings that connect the managed API to
+  Application Insights
+- An environment-specific custom deployment role with only resource-group
+  read, Static Web App read, and deployment-token retrieval actions
 
-HTTPS is required, both App Services use TLS 1.2 or newer, FTP and SCM basic
-authentication are disabled, and the API allows browser CORS requests only
-from the generated frontend origin.
+Static Web Apps provides managed HTTPS. The workshop intentionally uses a
+public endpoint because browser participants access it directly. Private
+networking is outside this non-production workshop baseline.
 
 ## Deployment flow
 
-1. Validate Bicep and run a resource-group what-if.
-2. Create a fresh deployment stack containing two Linux App Services.
-3. ZIP-deploy the backend source to the Python App Service.
-4. Build the Vite frontend using the backend URL.
-5. ZIP-deploy the contents of `dist` to the Node.js App Service.
-6. Verify `/api/health` and the frontend root.
+1. Compile Bicep and run a resource-group what-if.
+2. Create or update the resource-group deployment stack.
+3. Vendor Python 3.11-compatible Linux dependencies into a temporary API
+   package.
+4. Build the Vite frontend.
+5. Retrieve the generated deployment token into process memory.
+6. Upload the frontend and managed API as one deployment.
+7. Clear the token, remove the temporary package, and verify the application
+   root and `/api/health`.
 
-Every run receives a cryptographically random identifier.
+GitHub follows the same atomic upload model. It authenticates to Azure through
+an environment-scoped OIDC credential, retrieves and masks the deployment token
+at run time, and never stores an Azure client secret or deployment token.
 
-## Accepted workshop boundaries
+## Security and cost decisions
 
-- Demo identity headers are spoofable and are not authentication.
-- Ticket state resets when the single backend replica restarts.
-- The API is public because browsers call it directly.
-- Azure Monitor ingestion and query endpoints remain public, with Azure RBAC
-  still required for telemetry access; private networking is outside this
-  non-production workshop scope.
-- The topology is single-region and has no production SLA, RPO, or RTO.
-- App Service S1 is retained from the approved safe infrastructure even though
-  a static-hosting service could be cheaper.
+- The GitHub identity receives the environment-specific custom deployment role
+  only on the generated Static Web App.
+- The OIDC subject is limited to the `workshop-deployment` environment, whose
+  branch policy allows only `main`.
+- Pull request jobs have read-only repository access and no Azure OIDC
+  permission.
+- Static Web Apps route and response-header configuration is versioned with the
+  frontend.
+- The Free plan is appropriate for this synthetic workshop and removes the
+  always-on S1 App Service cost.
+- Demo identity headers remain intentionally spoofable and are not production
+  authentication.
+- Process-local ticket state resets whenever the managed API instance restarts
+  and is not shared across instances.
 
 ## Validation checklist
 
-- [x] Azure CLI is installed and authenticated to the target subscription.
+- [x] Python 3.11-compatible Linux dependency staging succeeds.
+- [x] FastAPI and Functions adapter tests pass.
+- [ ] React type checking and production build succeed.
+- [ ] Static Web Apps configuration is copied to `dist`.
 - [x] Bicep compilation succeeds.
-- [x] Resource-group ARM validation succeeds.
-- [x] Resource-group what-if succeeds with 12 creates, 0 modifications, and 0
-  deletions for a fresh validation identifier.
-- [x] Scaffold conformance passes with no failures.
-- [x] React type checking and production build succeed.
-- [x] FastAPI tests pass.
-- [x] Frontend production dependency audit reports no vulnerabilities.
-- [x] FTP and SCM basic publishing authentication are disabled; frontend ZIP
-  deployment uses Microsoft Entra authentication with Azure CLI 2.48.1 or newer.
+- [x] PowerShell deployment scripts parse successfully.
+- [ ] Resource-group ARM what-if succeeds in a target subscription.
+- [x] GitHub Actions workflow syntax is valid.
+- [x] Security and architecture review is complete.
 
-## Role assignment verification
-
-- **Status:** Verified
-- **Identity:** Separate GitHub Actions deployment identities for the backend
-  and frontend
-- **Role:** `Website Contributor`
-- **Scope:** Each generated App Service only
-- **Result:** Each workflow can update only its corresponding App Service.
-
-## Validation proof
-
-Validated on 2026-09-22 before deployment approval:
-
-| Command | Result |
-| --- | --- |
-| `pwsh ./infra/validate.ps1 -ResourceGroup <resource-group-name>` | PASS: CLI, authentication, Bicep build, and resource-group what-if |
-| `scaffold-conformance.sh ... infra` | PASS: `{"passed":true,"failures":[]}` |
-| `cd src/backend && .venv/bin/python -m pytest -q` | PASS: 8 tests; one upstream deprecation warning |
-| `npm run build --prefix src/frontend` | PASS: TypeScript and Vite production build |
-| `npm audit --prefix src/frontend --omit=dev` | PASS: 0 vulnerabilities |
-
-The installed Bicep CLI emits non-blocking `BCP081` for the registered
-`Microsoft.OperationalInsights/workspaces@2026-03-01` API because local type
-metadata lags the service API. ARM validation and what-if both accept the
-resource.
+The local npm package-feed proxy returned 404 for existing locked frontend
+packages, so the unchanged frontend source could not be rebuilt in this
+environment. The GitHub workflow retains the locked `npm ci` build as a
+required deployment prerequisite.

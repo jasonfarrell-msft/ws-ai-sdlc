@@ -1,0 +1,209 @@
+name: Validate and deploy
+
+on:
+  pull_request:
+    paths:
+      - "src/backend/**"
+      - "src/frontend/**"
+      - "infra/**"
+      - ".github/workflows/deploy.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "src/backend/**"
+      - "src/frontend/**"
+      - "infra/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Test backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            src/backend/requirements.txt
+            src/backend/requirements-dev.txt
+
+      - name: Install dependencies
+        working-directory: src/backend
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+
+      - name: Run tests
+        working-directory: src/backend
+        run: python -m pytest -q
+
+  frontend:
+    name: Build frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: src/frontend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production assets
+        run: npm run build
+
+      - name: Upload production assets
+        if: >-
+          github.ref == 'refs/heads/main' &&
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: frontend-${{ github.sha }}
+          path: src/frontend/dist
+          if-no-files-found: error
+          retention-days: 1
+
+  infrastructure:
+    name: Compile infrastructure
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Compile Bicep
+        run: az bicep build --file infra/main.bicep --stdout > /dev/null
+
+  deploy:
+    name: Deploy application
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs:
+      - backend
+      - frontend
+      - infrastructure
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: workshop-deployment
+    concurrency:
+      group: workshop-deployment
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      AZURE_STATIC_WEB_APP: ${{ vars.AZURE_STATIC_WEB_APP }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validate deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in \
+            AZURE_CLIENT_ID \
+            AZURE_TENANT_ID \
+            AZURE_SUBSCRIPTION_ID \
+            AZURE_RESOURCE_GROUP \
+            AZURE_STATIC_WEB_APP
+          do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::GitHub environment variable ${name} is not configured."
+              exit 1
+            fi
+          done
+
+      - name: Sign in to Azure
+        uses: azure/login@053f7285eb20bf5469ef084617b0b24d3cec53fc # v3.1.0
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Download production assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: frontend-${{ github.sha }}
+          path: deploy/frontend
+
+      - name: Get deployment token
+        id: token
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(az staticwebapp secrets list \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$AZURE_STATIC_WEB_APP" \
+            --query properties.apiKey \
+            --output tsv)"
+          if [[ -z "$token" ]]; then
+            echo "::error::Azure did not return a Static Web Apps deployment token."
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "value=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy frontend and API
+        uses: Azure/static-web-apps-deploy@1a947af9992250f3bc2e68ad0754c0b0c11566c9 # v1
+        with:
+          azure_static_web_apps_api_token: ${{ steps.token.outputs.value }}
+          action: upload
+          app_location: deploy/frontend
+          api_location: src/backend
+          output_location: ""
+          skip_app_build: true
+
+      - name: Verify deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          host_name="$(az staticwebapp show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$AZURE_STATIC_WEB_APP" \
+            --query defaultHostname \
+            --output tsv)"
+          application_url="https://${host_name}"
+          response="$(curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 12 \
+            --retry-all-errors \
+            --retry-delay 10 \
+            "${application_url}/api/health")"
+          python -c \
+            'import json, sys; assert json.load(sys.stdin).get("status") == "healthy"' \
+            <<< "$response"
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 12 \
+            --retry-all-errors \
+            --retry-delay 10 \
+            "$application_url" |
+            grep --fixed-strings --quiet "Support Desk Simulator"

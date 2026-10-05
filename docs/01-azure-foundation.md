@@ -2,176 +2,118 @@
 
 ## Goal
 
-In this section, you deploy the existing Support Desk Simulator to Azure and
-confirm that it is accessible. This creates the starting point for the rest of
-the workshop.
+Deploy the existing Support Desk Simulator to Azure and confirm that its
+frontend and API are accessible through one HTTPS origin. This creates the
+starting point for the rest of the workshop.
 
-You do not change the application code or add the AI feature in this section.
+The deployment creates:
 
-By the end of Section 1, you will have:
-
-- A React frontend running on Azure App Service
-- A FastAPI backend running on Azure App Service
-- A shared Linux App Service plan for both applications
-- Log Analytics and Application Insights for platform telemetry
-- Frontend and backend URLs that you have verified
-
-## Architecture
-
-The deployment creates a fresh, isolated deployment stack inside a dedicated
-resource group that you create. Every regional component uses that resource
-group's location.
-
-| Component | Azure service | Configuration |
-| --- | --- | --- |
-| Frontend | Linux App Service | Node.js 24 LTS |
-| Backend | Linux App Service | Python 3.13 |
-| Compute | App Service plan | Shared S1 plan |
-| Monitoring | Log Analytics and Application Insights | 30-day workspace retention |
-
-Each run uses a new random identifier. This prevents naming collisions and
-keeps one workshop deployment separate from another.
+- A React frontend on Azure Static Web Apps
+- A FastAPI application hosted by managed Azure Functions on Python 3.11
+- Same-origin API routing under `/api`
+- Log Analytics and workspace-based Application Insights
 
 > [!IMPORTANT]
 > The application uses synthetic data and demo identities. Do not enter real
 > customer, credential, personal, or confidential information.
 
+## Architecture
+
+| Component | Azure service | Configuration |
+| --- | --- | --- |
+| Frontend | Azure Static Web Apps | Vite static production build |
+| Backend | Static Web Apps managed Functions | Python 3.11 and FastAPI ASGI |
+| Routing | Static Web Apps reverse proxy | Fixed same-origin `/api` route |
+| Monitoring | Log Analytics and Application Insights | 30-day workspace retention |
+| Deployment role | Custom Azure role definition | Least-privilege token retrieval |
+
+The deployment also creates a custom Azure role named
+`Support Desk SWA Deployer <environment-name>`. It grants only the permissions
+needed to read the Static Web App and retrieve its deployment token. Part 2
+assigns this role to a workflow identity, so no deployment token or client
+secret is ever stored.
+
+The workshop uses the Free plan and disables staging environments. Static Web
+Apps supplies managed HTTPS. The deployment script uploads the frontend and API
+together, so users never receive a frontend that points at a different backend
+revision.
+
 ## Prerequisites
 
-Complete these steps from a PowerShell 7 terminal on Windows, macOS, or Linux.
-
-You need:
+Use a PowerShell 7 terminal on Windows, macOS, or Linux. You need:
 
 - Access to an Azure subscription
-- `Contributor` on the target subscription so you can create the dedicated
-  resource group and its application resources
-- Azure CLI 2.48.1 or newer
-- The Azure CLI Bicep component
-- Git
-- GitHub CLI
-- A GitHub account that can create a personal fork
+- Permission to create resources in a dedicated resource group
+- Azure CLI 2.48.1 or newer with Bicep
+- Git and GitHub CLI
 - PowerShell 7
-- Node.js 22 or newer and npm 10.9 or newer
+- Python 3.11
+- Node.js 22 or newer and npm
+- Azure Static Web Apps CLI 2.0.10 or newer
 
-The deployment uses Microsoft Entra authentication. It does not require App
-Service publishing credentials.
+The deployment uses Microsoft Entra authentication. It stores no Azure client
+secret or Static Web Apps deployment token.
 
 ## 1. Fork and clone the repository
 
-Sign in to GitHub CLI:
-
 ```powershell
 gh auth login
-gh auth status
-```
-
-Create a personal fork and clone it:
-
-```powershell
 gh repo fork jasonfarrell-msft/ws-ai-sdlc `
   --clone `
   --default-branch-only
 Set-Location ws-ai-sdlc
-```
-
-GitHub CLI configures your fork as `origin` and the workshop source repository
-as `upstream`.
-
-Make your fork the default repository for GitHub CLI and record its
-`owner/repository` value:
-
-```powershell
 gh repo set-default origin
 
 $GITHUB_REPOSITORY = gh repo view `
   --json nameWithOwner `
   --jq .nameWithOwner
-Write-Host $GITHUB_REPOSITORY
 ```
 
-Confirm the repository is your fork and both remotes are present:
+Confirm that the repository is your fork:
 
 ```powershell
-gh api `
-  "repos/$GITHUB_REPOSITORY" `
-  --jq '{
-    repository:.full_name,
-    isFork:.fork,
-    admin:.permissions.admin,
-    upstream:.parent.full_name
-  }'
-
-git remote -v
+gh api "repos/$GITHUB_REPOSITORY" `
+  --jq '{repository:.full_name,isFork:.fork,admin:.permissions.admin,upstream:.parent.full_name}'
 ```
 
-Confirm that `isFork` and `admin` are `true`, `upstream` is
-`jasonfarrell-msft/ws-ai-sdlc`, `origin` points to your fork, and `upstream`
-points to the workshop source repository.
-
-If you already created and cloned the fork, do not run the fork command again.
-Change to the existing `ws-ai-sdlc` directory and continue with
-`gh repo set-default origin`.
+`isFork` and `admin` must be `true`, and `upstream` must be
+`jasonfarrell-msft/ws-ai-sdlc`.
 
 ## 2. Check the required tools
-
-Run:
 
 ```powershell
 git --version
 gh --version
 pwsh --version
-az version --query '"azure-cli"' --output tsv
-az bicep version
+python --version
 node --version
 npm --version
+swa --version
+az version --query '"azure-cli"' --output tsv
+az bicep version
 ```
 
-Confirm that:
+`deploy.ps1` calls `swa` directly, so install or update the Static Web Apps CLI
+globally if the command is missing or older than 2.0.10:
 
-- Git is installed.
-- GitHub CLI is installed.
-- PowerShell is version 7 or newer.
-- Azure CLI is version 2.48.1 or newer.
-- Node.js is version 22 or newer.
-- npm is version 10.9 or newer.
-- The Azure CLI Bicep component is installed.
-- Every command completes without a "command not found" error.
+```powershell
+npm install --global @azure/static-web-apps-cli@latest
+swa --version
+```
 
-## 3. Sign in to Azure
+Python must report 3.11 exactly. Static Web Apps managed functions do not
+support Python 3.12 or later, and `deploy.ps1` stops if it finds another
+version.
 
-Sign in:
+## 3. Sign in and create the resource group
 
 ```powershell
 az login
-```
+az account set --subscription '<subscription-id>'
 
-If necessary, select the subscription that contains your lab resource group:
-
-```powershell
-az account set `
-  --subscription '<subscription-id>'
-```
-
-Confirm the active subscription:
-
-```powershell
-az account show `
-  --query '{name:name,id:id,user:user.name}' `
-  --output table
-```
-
-## 4. Create the target resource group
-
-Choose a name and Azure region for a dedicated workshop resource group:
-
-```powershell
 $RESOURCE_GROUP = '<resource-group-name>'
 $LOCATION = '<azure-region>'
-```
 
-Create the resource group:
-
-```powershell
 az group create `
   --name $RESOURCE_GROUP `
   --location $LOCATION `
@@ -179,64 +121,31 @@ az group create `
   --output table
 ```
 
-The command returns the resource group's name and location. The deployment
-scripts read this location directly and use it for every regional component.
-Confirm that the returned location matches `$LOCATION`. You do not provide a
-separate location parameter to the deployment scripts.
+Use a resource group dedicated to the workshop. The monitoring resources use
+the resource group location. The Static Web App uses `eastus2` by default
+because Static Web Apps supports a defined set of deployment regions; change
+`staticWebAppLocation` in
+[`infra/main.parameters.json`](../infra/main.parameters.json) if needed.
 
-> [!NOTE]
-> Use a new resource group dedicated to this workshop. The deployment creates
-> a separate deployment stack inside it, which keeps the workshop resources
-> isolated from other workloads.
-
-## 5. Validate the infrastructure
-
-From the repository root, run:
+## 4. Validate the infrastructure
 
 ```powershell
 pwsh ./infra/validate.ps1 `
   -ResourceGroup $RESOURCE_GROUP
 ```
 
-The validation script:
+The script compiles [`infra/main.bicep`](../infra/main.bicep) and runs an Azure
+Resource Manager what-if without creating resources.
 
-1. Selects the target Azure subscription.
-2. Reads the location from the target resource group.
-3. Compiles [`infra/main.bicep`](../infra/main.bicep).
-4. Asks Azure Resource Manager to evaluate the deployment and summarize the
-   proposed changes without applying them.
-5. Creates no resources.
-
-Confirm that the command prints:
-
-```text
-Bicep compilation passed.
-Infrastructure validation passed. Planned changes: Create: <count>.
-```
-
-The exact count can change as the workshop infrastructure evolves. A new
-workshop resource group should report only planned creates. The validation is
-not an emptiness check; it confirms that the template compiles and that Azure
-Resource Manager can evaluate the deployment in the selected subscription,
-resource group, and region.
-
-You may see a non-blocking `BCP081` warning for the Log Analytics API version.
-Azure validation accepts this registered API version.
-
-## 6. Deploy the starting application
-
-Run:
+## 5. Deploy the application
 
 ```powershell
 pwsh ./infra/deploy.ps1 `
   -ResourceGroup $RESOURCE_GROUP
 ```
 
-When prompted, enter only 2-5 letters for your initials. Do not include a
-numeric suffix. The script lowercases the initials and appends the fixed suffix
-`01`, so `JRF` becomes the environment name `jrf01`.
-
-For non-interactive use, pass the initials without the suffix:
+Enter 2-5 letters when prompted. The script lowercases the initials and appends
+`01`; for example, `JRF` becomes `jrf01`. For non-interactive use:
 
 ```powershell
 pwsh ./infra/deploy.ps1 `
@@ -244,37 +153,26 @@ pwsh ./infra/deploy.ps1 `
   -Label JRF
 ```
 
-The deployment usually takes 10-20 minutes. The script:
+The script:
 
-1. Prompts for your initials and creates an environment name by appending `01`
-   (for example, `jrf` becomes `jrf01`).
-2. Creates an isolated Azure deployment stack.
-3. Provisions a shared App Service plan, separate frontend and backend web apps,
-   and monitoring resources.
-4. ZIP-deploys the FastAPI backend to its Python App Service.
-5. Builds the React frontend with the generated backend URL.
-6. ZIP-deploys the frontend to its Node.js App Service.
-7. Checks the frontend and backend endpoints.
+1. Creates or updates an isolated Azure deployment stack.
+2. Provisions Static Web Apps and monitoring resources with Bicep.
+3. Packages Python 3.11-compatible Linux API dependencies.
+4. Installs the locked frontend dependencies and builds the Vite application.
+5. Retrieves the generated Static Web Apps deployment token into process
+   memory.
+6. Atomically uploads the frontend and managed Python API.
+7. Clears the token and temporary API package.
+8. Checks the application root and `/api/health`.
 
-Do not close the terminal while the script is running.
+Step 3 downloads Linux `manylinux` wheels for Python 3.11 rather than wheels for
+your own operating system, because `swa deploy` uploads the API exactly as
+packaged and never installs dependencies in Azure.
 
-### If deployment stops before completion
+Rerunning the command with the same initials updates the same environment.
 
-The infrastructure may already exist if the script fails during backend
-deployment, frontend build, or endpoint checks. Before starting a fresh
-deployment, list the deployment stacks:
-
-```powershell
-az stack group list `
-  --resource-group $RESOURCE_GROUP `
-  --query '[].{name:name,state:provisioningState}' `
-  --output table
-```
-
-Find the new stack whose name starts with `azstk`. The environment name is the
-lowercase initials followed by `01` after that prefix. For example,
-`azstkjrf01` uses the environment name `jrf01`. Record the stack name and state
-for troubleshooting, then remove the failed environment before rerunning:
+If provisioning succeeds but code deployment fails, fix the reported problem
+and rerun the same command. To remove the environment instead:
 
 ```powershell
 pwsh ./infra/destroy.ps1 `
@@ -283,86 +181,42 @@ pwsh ./infra/destroy.ps1 `
   -ConfirmEnvironment '<initials>01'
 ```
 
-Rerunning `deploy.ps1` with the same initials updates the same environment.
+`destroy.ps1` removes the deployment role assignment before it deletes the
+stack, then deletes the workflow identity that Part 2 created. Run it from this
+part even if you completed Part 2.
 
-## 7. Record the deployment output
+## 6. Record and verify the deployment
 
-When deployment succeeds, the script prints values similar to:
+The successful command prints:
 
 ```text
 Deployment complete.
-Environment name: <initials>01
+Environment name:  <initials>01
 Deployment stack: azstk<initials>01
-Resource group:   <resource-group-name>
-Location:         <resource-group-location>
-Frontend URL:     https://<app-name>.azurewebsites.net
-Backend URL:      https://<backend-app-name>.azurewebsites.net
-Frontend App:     <frontend-app-name>
-Backend App:      <backend-app-name>
+Resource group:    <resource-group-name>
+Application URL:   https://<generated-host>.azurestaticapps.net
+Static Web App:    <resource-name>
 ```
 
-Save the following values for later workshop sections:
+Save the environment name, deployment stack, application URL, and Static Web
+App resource name.
 
-| Value | Your deployment |
-| --- | --- |
-| Environment name (for example, `jrf01`) | |
-| Deployment stack | |
-| Frontend URL | |
-| Backend URL | |
-| Frontend App | |
-| Backend App | |
-
-## 8. Verify the deployed application
-
-Open the frontend URL printed by the deployment script.
-
-Confirm that:
-
-- The page title is **Support Desk Simulator**.
-- The synthetic ticket queue is visible.
-- You can switch between the requester and support-agent demo roles.
-- The knowledge library opens.
-
-> [!NOTE]
-> This Section 1 deployment uses its own generated App Service URL. It is
-> separate from the facilitator's pre-existing workshop URL.
-
-Next, append `/api/health` to the backend URL or run:
+Open the application URL and confirm that the synthetic ticket queue and
+knowledge library work. Then verify the API:
 
 ```powershell
-Invoke-RestMethod -Uri '<backend-url>/api/health'
-```
+Invoke-RestMethod -Uri '<application-url>/api/health'
 
-Expected response:
-
-```json
-{"status":"healthy"}
-```
-
-Finally, confirm that Azure reports both application resources as healthy:
-
-```powershell
-az webapp show `
+az staticwebapp show `
   --resource-group $RESOURCE_GROUP `
-  --name '<frontend-app-name>' `
-  --query '{state:state,httpsOnly:httpsOnly}' `
-  --output table
-
-az webapp show `
-  --resource-group $RESOURCE_GROUP `
-  --name '<backend-app-name>' `
-  --query '{state:state,httpsOnly:httpsOnly}' `
+  --name '<static-web-app-name>' `
+  --query '{name:name,host:defaultHostname,sku:sku.name}' `
   --output table
 ```
 
-Both App Service states should be `Running`, and both `httpsOnly` values should
-be `true`.
+The health response must be `{"status":"healthy"}`.
 
 ## Deployment complete
 
-Your existing Support Desk application is now deployed and accessible in
-Azure. Keep the frontend URL, backend URL, and environment name available for the
-remaining workshop sections.
-
-The AI feature is intentionally not present yet. A later section will extend
-this working starting point.
+The existing application is now deployed through one standard, repeatable
+Static Web Apps deployment. The AI feature is intentionally not present yet.

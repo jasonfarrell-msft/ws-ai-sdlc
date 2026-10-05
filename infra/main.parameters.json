@@ -5,14 +5,8 @@
     "deploymentLabel": {
       "value": "aisdlc"
     },
-    "enableDiagnostics": {
-      "value": true
-    },
-    "nodeRuntime": {
-      "value": "NODE|24-lts"
-    },
-    "pythonRuntime": {
-      "value": "PYTHON|3.13"
+    "staticWebAppLocation": {
+      "value": "eastus2"
     }
   }
 }

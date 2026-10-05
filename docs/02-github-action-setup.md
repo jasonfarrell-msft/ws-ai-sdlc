@@ -2,199 +2,120 @@
 
 ## Goal
 
-In this section, you connect the GitHub Actions workflows to the Azure resources
-created in Part 1. After setup, a completed backend or frontend change merged
-to `main` automatically deploys the changed component.
+Connect the fork's GitHub Actions workflow to the Static Web App created in
+Part 1. Pull requests validate without Azure access. A change merged to `main`
+atomically deploys the frontend and managed API.
 
-The setup uses GitHub OIDC and Azure managed identities. It does not create or
-store an Azure client secret or App Service publishing credential.
+The setup uses GitHub OIDC and one Azure user-assigned managed identity. It
+stores no Azure client secret or Static Web Apps deployment token in GitHub.
 
 ## Prerequisites
 
-Before continuing:
+- Complete Part 1 and retain its deployment output.
+- Use the personal fork created in Part 1.
+- Use a PowerShell 7 terminal with authenticated Azure and GitHub CLIs.
+- Have permission to create a managed identity and role assignment at the
+  Static Web App resource scope. Part 1 also requires permission to create the
+  environment-specific custom role definition in the resource group.
+- Ensure [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) is on
+  the fork's `main` branch.
 
-- Complete Part 1 and keep its recorded deployment values.
-- Use a PowerShell 7 terminal.
-- Use the personal fork created and cloned in Part 1.
-- Have permission to create managed identities and role assignments at the
-  two App Service resource scopes.
-- Confirm the backend and frontend workflow files are on your fork's `main`
-  branch.
-
-## 1. Check the required access
-
-Confirm that Azure CLI is signed in to the subscription used in Part 1:
+## 1. Confirm access
 
 ```powershell
 az account show `
   --query '{subscription:name,id:id,user:user.name}' `
   --output table
-```
 
-Confirm GitHub CLI is signed in and that the current repository is your fork:
-
-```powershell
 gh auth status
 gh repo set-default origin
 
 $GITHUB_REPOSITORY = gh repo view `
   --json nameWithOwner `
   --jq .nameWithOwner
-
-gh api `
-  "repos/$GITHUB_REPOSITORY" `
-  --jq '{
-    repository:.full_name,
-    isFork:.fork,
-    admin:.permissions.admin,
-    upstream:.parent.full_name
-  }'
 ```
 
-The GitHub command must show `isFork: true`, `admin: true`, and upstream
-`jasonfarrell-msft/ws-ai-sdlc`.
+Confirm that the repository is your fork:
 
-## 2. Enable workflows in your fork
+```powershell
+gh api "repos/$GITHUB_REPOSITORY" `
+  --jq '{repository:.full_name,isFork:.fork,admin:.permissions.admin,upstream:.parent.full_name}'
+```
 
-GitHub disables Actions when a repository is first forked. This setting can
-only be enabled from the GitHub website.
+## 2. Enable workflows in the fork
 
-Open the Actions tab for your fork:
+GitHub disables Actions when a repository is first forked. Open the Actions
+page and select **I understand my workflows, go ahead and enable them**:
 
 ```powershell
 Write-Host "https://github.com/$GITHUB_REPOSITORY/actions"
 ```
 
-Open the printed URL, then select
-**I understand my workflows, go ahead and enable them**.
-
-Confirm that GitHub now reports registered workflows:
+Confirm that the workflow is registered and not `disabled_fork`:
 
 ```powershell
-gh api `
-  "repos/$GITHUB_REPOSITORY/actions/workflows" `
-  --jq '{
-    registeredWorkflows:.total_count,
-    workflows:[.workflows[] | {path,state}]
-  }'
+gh api "repos/$GITHUB_REPOSITORY/actions/workflows" `
+  --jq '.workflows[] | {path,state}'
 ```
 
-The `registeredWorkflows` value must be greater than zero, both workshop
-workflow paths must appear, and neither workflow should report
-`disabled_fork`. The setup script checks these conditions before creating
-Azure identities or GitHub environments. If the count is zero or a workflow
-reports `disabled_fork`, confirm that you enabled workflows. If a path is
-missing, confirm that both workflow files are present on your fork's `main`
-branch.
-
-## 3. Set the Part 1 deployment values
-
-Use the values printed by `infra/deploy.ps1`:
+## 3. Set the Part 1 values
 
 ```powershell
 $RESOURCE_GROUP = '<resource-group-name>'
 $ENVIRONMENT_NAME = '<initials>01'
-$AZURE_BACKEND_APP_SERVICE = '<backend-app-name>'
-$AZURE_FRONTEND_APP_SERVICE = '<frontend-app-name>'
+$AZURE_STATIC_WEB_APP = '<static-web-app-name>'
 ```
 
-Use the complete environment name printed by the deployment script. It consists
-of your lowercase initials followed by the fixed `01` suffix; for example,
-initials `JRF` produce `jrf01`.
-
-## 4. Configure Azure and GitHub access
-
-Run the setup script from the repository root:
+## 4. Configure Azure and GitHub
 
 ```powershell
 pwsh ./infra/configure-github-actions.ps1 `
   -ResourceGroup $RESOURCE_GROUP `
   -EnvironmentName $ENVIRONMENT_NAME `
-  -BackendAppService $AZURE_BACKEND_APP_SERVICE `
-  -FrontendAppService $AZURE_FRONTEND_APP_SERVICE `
+  -StaticWebApp $AZURE_STATIC_WEB_APP `
   -Repository $GITHUB_REPOSITORY
 ```
 
-The script creates and configures:
+The script creates:
 
 | Item | Purpose |
 | --- | --- |
-| Backend deployment identity | Updates only the backend App Service |
-| Frontend deployment identity | Updates only the frontend App Service |
-| Two OIDC federated credentials | Let GitHub authenticate without stored secrets |
-| `workshop-backend` environment | Supplies backend Azure resource variables |
-| `workshop-frontend` environment | Supplies frontend Azure resource variables |
-| `AZURE_BACKEND_URL` repository variable | Configures the frontend production build; derived from the backend App Service name |
-| `main` environment branch policies | Prevent non-`main` deployment jobs from using either identity |
+| User-assigned managed identity | Gives GitHub a secretless Azure identity |
+| Environment-scoped OIDC credential | Trusts only `workshop-deployment` in this fork |
+| Custom deployment role assignment | Allows only app read and deployment-token retrieval on the generated Static Web App |
+| `workshop-deployment` environment | Holds non-secret Azure resource identifiers |
+| `main` branch policy | Prevents other branches from using the deployment identity |
 
-The script derives the backend URL as
-`https://<backend-app-name>.azurewebsites.net`. It also verifies that the target
-is your fork of the workshop repository, confirms that you enabled Actions for
-the fork, configures its Actions permissions, and enables both workflows. When
-GitHub uses immutable OIDC subjects, the script reads the repository's
-immutable owner and repository IDs and configures the Azure federated
-credentials to match.
+The workflow signs in with OIDC, retrieves the Azure-generated deployment token
+at run time, masks it, and passes it directly to the pinned Static Web Apps
+deployment action. The token is never stored in the repository or a GitHub
+secret.
 
 > [!WARNING]
-> Maintainers testing this setup against the source repository can temporarily
-> add `-SkipForkValidation` to the command. This testing-only override bypasses
-> only the fork-parent check and must not be used for participant setup. Remove
-> the parameter after source-repository testing is complete.
+> Maintainers testing the source repository can temporarily add
+> `-SkipForkValidation`. Participants must not use that override.
 
-No manual deployment approval is configured. The path-filtered workflows deploy
-automatically after a matching change reaches `main`.
-
-The script is safe to run again with the same values if setup is interrupted.
+The script is idempotent and can be rerun with the same values.
 
 ## 5. Verify the configuration
 
-Confirm the backend environment variables:
-
 ```powershell
 gh variable list `
   --repo $GITHUB_REPOSITORY `
-  --env workshop-backend
+  --env workshop-deployment
 ```
 
-Expected names:
+Expected variable names:
 
 ```text
 AZURE_CLIENT_ID
 AZURE_TENANT_ID
 AZURE_SUBSCRIPTION_ID
 AZURE_RESOURCE_GROUP
-AZURE_BACKEND_APP_SERVICE
+AZURE_STATIC_WEB_APP
 ```
 
-Confirm the frontend environment variables:
-
-```powershell
-gh variable list `
-  --repo $GITHUB_REPOSITORY `
-  --env workshop-frontend
-```
-
-Expected names:
-
-```text
-AZURE_CLIENT_ID
-AZURE_TENANT_ID
-AZURE_SUBSCRIPTION_ID
-AZURE_RESOURCE_GROUP
-AZURE_APP_SERVICE
-```
-
-Confirm the repository variable:
-
-```powershell
-gh variable list `
-  --repo $GITHUB_REPOSITORY |
-  Select-String '^AZURE_BACKEND_URL'
-```
-
-Each environment must return exactly one row.
-
-Confirm that both workflows are active in your fork:
+Confirm that the workflow is active:
 
 ```powershell
 gh workflow list `
@@ -204,35 +125,22 @@ gh workflow list `
 
 ## 6. Test the deployment loop
 
-The workflows normally run automatically when matching files change on `main`.
-For an initial access check, start each workflow manually from `main`:
-
 ```powershell
-gh workflow run backend.yml `
+gh workflow run deploy.yml `
   --repo $GITHUB_REPOSITORY `
   --ref main
 
-gh workflow run frontend.yml `
-  --repo $GITHUB_REPOSITORY `
-  --ref main
-```
-
-List the runs:
-
-```powershell
 gh run list `
   --repo $GITHUB_REPOSITORY `
-  --limit 10
+  --limit 5
 ```
 
-Both runs should complete successfully without an approval step. The backend
-workflow ZIP-deploys the Python application, and the frontend workflow builds
-and ZIP-deploys the site. Each workflow verifies its deployed endpoint before
-reporting success.
+The workflow runs backend tests, the frontend build, and Bicep compilation
+before requesting an OIDC token. It then deploys both application components
+and verifies the application root and `/api/health`.
 
-Azure role assignments can take several minutes to propagate. If either run
-fails with an authorization error, wait two minutes, copy its run ID from the
-list, and retry it:
+Azure role assignments can take several minutes to propagate. If the first run
+fails with authorization denied, wait two minutes and rerun that run:
 
 ```powershell
 gh run rerun '<run-id>' `
@@ -241,6 +149,5 @@ gh run rerun '<run-id>' `
 
 ## Automatic deployment setup complete
 
-The deployment loop is ready. Pull requests validate changes without Azure
-access. After completed work is merged to `main`, backend and frontend changes
-deploy to their respective App Services automatically.
+Pull requests now validate without Azure access. Merges to `main` deploy the
+frontend and API together through the fork's dedicated identity.

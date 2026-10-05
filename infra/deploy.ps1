@@ -19,6 +19,27 @@ Assert-Command -Name az
 Assert-AzureCliVersion
 if (-not $SkipCodeDeploy) {
     Assert-Command -Name npm
+    Assert-Command -Name swa
+    $pythonCommand = if (Get-Command python3.11 -ErrorAction SilentlyContinue) {
+        'python3.11'
+    }
+    elseif (Get-Command python -ErrorAction SilentlyContinue) {
+        'python'
+    }
+    else {
+        throw "Required command 'python3.11' is not installed."
+    }
+    $pythonVersion = (& $pythonCommand -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")').Trim()
+    if ($pythonVersion -ne '3.11') {
+        throw "Python 3.11 is required to package the managed API. '$pythonCommand' reports Python $pythonVersion."
+    }
+    $swaVersionOutput = (swa --version).Trim()
+    if ($swaVersionOutput -notmatch '(?<version>\d+\.\d+\.\d+)') {
+        throw "Could not parse the Azure Static Web Apps CLI version from '$swaVersionOutput'."
+    }
+    if ([version]$Matches.version -lt [version]'2.0.10') {
+        throw 'Azure Static Web Apps CLI 2.0.10 or newer is required.'
+    }
 }
 Select-AzureSubscription
 Resolve-ResourceLocation -ResourceGroup $ResourceGroup
@@ -48,7 +69,7 @@ if ([string]::IsNullOrWhiteSpace($deployedBy)) {
     $deployedBy = az account show --query user.name --output tsv
 }
 
-Write-Host "Deploying environment $environmentName to $ResourceGroup in $script:ResourceLocation."
+Write-Host "Deploying environment $environmentName to $ResourceGroup."
 
 $templateFile = Join-Path $script:InfraDirectory 'main.bicep'
 $parametersFile = Join-Path $script:InfraDirectory 'main.parameters.json'
@@ -70,15 +91,34 @@ az stack group create `
     --yes `
     --output none
 
-function Test-HttpEndpoint {
+$staticWebAppName = Get-StackOutput `
+    -ResourceGroup $ResourceGroup `
+    -StackName $stackName `
+    -OutputName staticWebAppName
+$applicationUrl = Get-StackOutput `
+    -ResourceGroup $ResourceGroup `
+    -StackName $stackName `
+    -OutputName applicationUrl
+
+function Test-ApplicationEndpoint {
     param(
         [Parameter(Mandatory)]
-        [uri] $Uri
+        [uri] $Uri,
+
+        [switch] $HealthEndpoint
     )
 
     for ($attempt = 1; $attempt -le 12; $attempt++) {
         try {
-            Invoke-WebRequest -Uri $Uri -Method Get -UseBasicParsing | Out-Null
+            if ($HealthEndpoint) {
+                $response = Invoke-RestMethod -Uri $Uri -Method Get
+                if ($response.status -ne 'healthy') {
+                    throw "Health endpoint returned status '$($response.status)'."
+                }
+            }
+            else {
+                Invoke-WebRequest -Uri $Uri -Method Get -UseBasicParsing | Out-Null
+            }
             return
         }
         catch {
@@ -90,84 +130,79 @@ function Test-HttpEndpoint {
     }
 }
 
-$backendAppName = Get-StackOutput -ResourceGroup $ResourceGroup -StackName $stackName -OutputName backendAppName
-$frontendAppName = Get-StackOutput -ResourceGroup $ResourceGroup -StackName $stackName -OutputName frontendAppName
-$backendUrl = Get-StackOutput -ResourceGroup $ResourceGroup -StackName $stackName -OutputName backendUrl
-$frontendUrl = Get-StackOutput -ResourceGroup $ResourceGroup -StackName $stackName -OutputName frontendUrl
-
 if (-not $SkipCodeDeploy) {
     $backendDirectory = Join-Path $script:ProjectRoot 'src/backend'
     $backendStageDirectory = Join-Path $script:InfraDirectory "backend-$environmentName"
-    $backendZipPath = Join-Path $script:InfraDirectory "backend-$environmentName.zip"
     $frontendDirectory = Join-Path $script:ProjectRoot 'src/frontend'
-    $frontendDistDirectory = Join-Path $frontendDirectory 'dist'
-    $frontendZipPath = Join-Path $script:InfraDirectory "frontend-$environmentName.zip"
-    $previousApiBaseUrl = $env:VITE_API_BASE_URL
+    $previousDeploymentToken = $env:SWA_CLI_DEPLOYMENT_TOKEN
     $locationPushed = $false
 
     try {
-        $backendStageAppDirectory = Join-Path $backendStageDirectory 'app'
-        New-Item -ItemType Directory -Path $backendStageAppDirectory | Out-Null
+        if (Test-Path $backendStageDirectory) {
+            Remove-Item $backendStageDirectory -Recurse -Force
+        }
+        New-Item -ItemType Directory -Path $backendStageDirectory | Out-Null
         Copy-Item `
-            -Path (Join-Path $backendDirectory 'app/*.py') `
-            -Destination $backendStageAppDirectory
-        Copy-Item `
-            -Path (Join-Path $backendDirectory 'requirements.txt') `
-            -Destination $backendStageDirectory
-        Get-ChildItem -Path $backendStageDirectory -Force |
-            Compress-Archive -DestinationPath $backendZipPath
-
-        Invoke-ZipDeploy `
-            -ResourceGroup $ResourceGroup `
-            -AppName $backendAppName `
-            -ZipPath $backendZipPath
+            -Path (Join-Path $backendDirectory 'app') `
+            -Destination $backendStageDirectory `
+            -Recurse
+        foreach ($fileName in 'function_app.py', 'host.json', 'requirements.txt') {
+            Copy-Item `
+                -Path (Join-Path $backendDirectory $fileName) `
+                -Destination $backendStageDirectory
+        }
+        & $pythonCommand -m pip install `
+            --disable-pip-version-check `
+            --target (Join-Path $backendStageDirectory '.python_packages/lib/site-packages') `
+            --platform manylinux2014_x86_64 `
+            --python-version 3.11 `
+            --implementation cp `
+            --only-binary=:all: `
+            --requirement (Join-Path $backendDirectory 'requirements.txt')
 
         Push-Location $frontendDirectory
         $locationPushed = $true
         npm ci --replace-registry-host=never
-        $env:VITE_API_BASE_URL = $backendUrl
         npm run build
-        Pop-Location
-        $locationPushed = $false
 
-        Get-ChildItem -Path $frontendDistDirectory -Force |
-            Compress-Archive -DestinationPath $frontendZipPath
+        $env:SWA_CLI_DEPLOYMENT_TOKEN = az staticwebapp secrets list `
+            --subscription $script:SubscriptionId `
+            --resource-group $ResourceGroup `
+            --name $staticWebAppName `
+            --query properties.apiKey `
+            --output tsv
+        if ([string]::IsNullOrWhiteSpace($env:SWA_CLI_DEPLOYMENT_TOKEN)) {
+            throw "Azure did not return a deployment token for '$staticWebAppName'."
+        }
 
-        Invoke-ZipDeploy `
-            -ResourceGroup $ResourceGroup `
-            -AppName $frontendAppName `
-            -ZipPath $frontendZipPath
+        swa deploy ./dist `
+            --api-location $backendStageDirectory `
+            --swa-config-location ./dist `
+            --app-name $staticWebAppName `
+            --env production
     }
     finally {
         if ($locationPushed) {
             Pop-Location
         }
-        $env:VITE_API_BASE_URL = $previousApiBaseUrl
-        foreach ($zipPath in $backendZipPath, $frontendZipPath) {
-            if (Test-Path $zipPath) {
-                Remove-Item $zipPath -Force
-            }
-        }
+        $env:SWA_CLI_DEPLOYMENT_TOKEN = $previousDeploymentToken
         if (Test-Path $backendStageDirectory) {
             Remove-Item $backendStageDirectory -Recurse -Force
         }
     }
 
-    Test-HttpEndpoint -Uri "$backendUrl/api/health"
-    Test-HttpEndpoint -Uri $frontendUrl
+    Test-ApplicationEndpoint -Uri "$applicationUrl/api/health" -HealthEndpoint
+    Test-ApplicationEndpoint -Uri $applicationUrl
 }
 
 Write-Host @"
 
 Deployment complete.
-Environment name: $environmentName
+Environment name:  $environmentName
 Deployment stack: $stackName
-Resource group:   $ResourceGroup
-Location:         $script:ResourceLocation
-Frontend URL:     $frontendUrl
-Backend URL:      $backendUrl
-Frontend App:     $frontendAppName
-Backend App:      $backendAppName
+Resource group:    $ResourceGroup
+Application URL:   $applicationUrl
+Static Web App:    $staticWebAppName
 
 To remove only this generated environment:
 pwsh ./infra/destroy.ps1 -ResourceGroup '$ResourceGroup' -EnvironmentName '$environmentName' -ConfirmEnvironment '$environmentName'

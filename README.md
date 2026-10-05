@@ -1,7 +1,7 @@
 # Support Desk Simulator
 
 A deployable baseline support application for software-delivery workshops. The
-frontend is React 19, TypeScript, and Vite; the API is Python 3.13 and FastAPI.
+frontend is React 19, TypeScript, and Vite; the API is Python 3.11 and FastAPI.
 It models a small support queue without connecting to real users, customer data,
 ticketing systems, or AI services.
 
@@ -70,13 +70,14 @@ docs/         Reserved for workshop part files supplied separately
 
 ## Local development
 
-Prerequisites are PowerShell 7, Python 3.13, and Node.js 22 or newer.
+Prerequisites are PowerShell 7, Python 3.11, Node.js 22 or newer, and Azure
+Static Web Apps CLI 2.0.10 or newer.
 
 Start the API:
 
 ```powershell
 Set-Location src/backend
-$systemPython = if ($IsWindows) { 'python' } else { 'python3.13' }
+$systemPython = if ($IsWindows) { 'python' } else { 'python3.11' }
 & $systemPython -m venv .venv
 $venvPython = if ($IsWindows) {
   '.\.venv\Scripts\python.exe'
@@ -84,7 +85,6 @@ $venvPython = if ($IsWindows) {
   './.venv/bin/python'
 }
 & $venvPython -m pip install -r requirements-dev.txt
-$env:FRONTEND_ORIGIN = 'http://localhost:5173'
 & $venvPython -m uvicorn app.main:app --host 127.0.0.1 --port 5050 --no-access-log
 ```
 
@@ -97,8 +97,21 @@ npm run dev
 ```
 
 Open `http://localhost:5173`. Vite proxies `/api` to
-`http://localhost:5050`. For a separately hosted API, set
-`VITE_API_BASE_URL` when building the frontend.
+`http://localhost:5050`. For a separately hosted API, set `VITE_API_BASE_URL` when building the
+frontend. The Azure deployment leaves it unset so the browser uses the Static
+Web Apps same-origin `/api` route.
+
+To emulate the integrated Azure host locally, install Azure Functions Core
+Tools v4, build the frontend, and start the Static Web Apps CLI:
+
+```powershell
+Set-Location src/frontend
+npm ci
+npm run build
+npm run swa:start
+```
+
+Open `http://localhost:4280`.
 
 ## Tests and validation
 
@@ -148,17 +161,18 @@ Article list supports `search`. Errors use a stable shape:
 
 ## Azure architecture
 
-The intended split deployment is:
+The application deploys as one Azure Static Web App:
 
-- **Backend:** FastAPI runs on a Python 3.13 Linux App Service.
-- **Frontend:** the Vite production assets are built with the backend's public
-  URL in `VITE_API_BASE_URL` and served by a Node.js 24 Linux App Service.
-- **Compute:** both applications share one Linux S1 App Service plan.
-- **Observability:** Log Analytics, workspace-based Application Insights, and
-  diagnostic settings collect platform telemetry.
-
-Set `FRONTEND_ORIGIN` on the backend to the frontend's exact HTTPS origin. The
-deployment scripts set it from the generated App Service URL.
+- **Frontend:** Azure Static Web Apps serves the Vite production assets over
+  its managed HTTPS endpoint.
+- **Backend:** a managed Azure Functions Python 3.11 API hosts the existing
+  FastAPI application through the Functions ASGI adapter.
+- **Routing:** frontend requests use the same-origin `/api` route. No deployed
+  CORS policy or build-time backend URL is required.
+- **Observability:** Log Analytics and workspace-based Application Insights
+  collect managed API telemetry.
+- **Cost:** the workshop uses the Static Web Apps Free plan and disables
+  staging environments.
 
 Validate the deployment against a dedicated workshop resource group without
 creating application resources:
@@ -175,102 +189,70 @@ pwsh ./infra/deploy.ps1 `
   -ResourceGroup '<resource-group-name>'
 ```
 
-The deployment prints the frontend and backend URLs.
-
-By default, each deployment creates a shared App Service plan, separate
-frontend and backend web apps, Log Analytics, Application Insights, and
-diagnostic settings. FTP and SCM basic publishing authentication are disabled,
-and no application secrets are stored.
+The deployment prints the application URL and Static Web App resource name.
+Provisioning is repeatable through Bicep, and the frontend and API are uploaded
+as one deployment. The script retrieves the Azure-generated deployment token
+only for the duration of the upload and restores the caller's environment
+afterward.
 
 ## GitHub Actions deployments
 
-Two path-filtered workflows independently validate and deploy application
-changes:
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) tests the
+FastAPI application, builds the React application, compiles Bicep, and deploys
+the frontend and managed API together.
 
-- [`.github/workflows/backend.yml`](.github/workflows/backend.yml) tests
-  FastAPI changes, ZIP-deploys the backend to App Service, and checks
-  `/api/health`.
-- [`.github/workflows/frontend.yml`](.github/workflows/frontend.yml) checks the
-  React production build, rebuilds it with the deployed backend URL, ZIP
-  deploys it to App Service, and checks the website response.
-
-Pull requests run validation only. Pushes to `main` deploy the changed
-application, and either workflow can be run manually from `main`. Validation
-runs cancel obsolete work for the same branch. Azure deployment jobs use a
-fixed component-specific concurrency group and never cancel an in-progress
-deployment, preventing two runs from racing to update the same resource.
+Pull requests run validation without Azure access. Pushes to `main` deploy the
+whole application, and the workflow can also be run manually from `main`. A
+fixed concurrency group never cancels an in-progress deployment, preventing
+two uploads from racing.
 
 Workshop participants fork this repository and configure the workflows in
 their own fork. This keeps each participant's GitHub OIDC trust, variables, and
 Azure deployment target isolated from the source repository and other
 participants.
 
-### Configure the deployment environments
+### Configure the deployment environment
 
-Use separate deployment identities and GitHub environments so each workflow can
-modify only its own Azure resources.
-
-Create `workshop-backend` with:
+Create one `workshop-deployment` GitHub environment with:
 
 | Environment variable | Value |
 | --- | --- |
-| `AZURE_CLIENT_ID` | Client ID of the backend deployment identity |
+| `AZURE_CLIENT_ID` | Client ID of the deployment identity |
 | `AZURE_TENANT_ID` | Microsoft Entra tenant ID |
 | `AZURE_SUBSCRIPTION_ID` | Subscription containing the deployment |
 | `AZURE_RESOURCE_GROUP` | Existing resource group containing the application |
-| `AZURE_BACKEND_APP_SERVICE` | Backend App Service resource name |
+| `AZURE_STATIC_WEB_APP` | Static Web App resource name |
 
-Create `workshop-frontend` with:
-
-| Environment variable | Value |
-| --- | --- |
-| `AZURE_CLIENT_ID` | Client ID of the frontend deployment identity |
-| `AZURE_TENANT_ID` | Microsoft Entra tenant ID |
-| `AZURE_SUBSCRIPTION_ID` | Subscription containing the deployment |
-| `AZURE_RESOURCE_GROUP` | Existing resource group containing the application |
-| `AZURE_APP_SERVICE` | Frontend App Service resource name |
-
-Add `AZURE_BACKEND_URL` as a repository variable containing
-`https://<backend-app-service-name>.azurewebsites.net`. The workshop
-configuration script derives this value from the backend App Service name. It
-is public configuration used by the unprivileged frontend packaging job.
-
-Use dedicated user-assigned managed identities for GitHub. Add an
-environment-scoped federated credential to each deployment identity with:
+Use a dedicated user-assigned managed identity for GitHub. Add an
+environment-scoped federated credential to the deployment identity with:
 
 - Issuer: `https://token.actions.githubusercontent.com`
 - Audience: `api://AzureADTokenExchange`
-- Backend subject:
-  `<repository-oidc-subject-prefix>:environment:workshop-backend`
-- Frontend subject:
-  `<repository-oidc-subject-prefix>:environment:workshop-frontend`
+- Subject: `<repository-oidc-subject-prefix>:environment:workshop-deployment`
 
 The configuration script reads the subject prefix from GitHub so it supports
 both legacy name-based subjects and immutable subjects containing owner and
 repository IDs.
 
 Under **Deployment branches and tags**, choose **Selected branches and tags**
-and add only `main` for both environments. The workflows also enforce
-`refs/heads/main` before any deployment job can start. No manual approval is
-required: merging a backend or frontend change to `main` completes the loop by
-deploying that component automatically.
+and add only `main`. The workflow also enforces `refs/heads/main` before its
+deployment job can start. No manual approval is required.
 
-No GitHub secret or Azure client secret is required. At the narrowest applicable
-resource scopes, grant the identities:
+No GitHub secret or Azure client secret is required. Grant the identity at the
+narrowest applicable scope:
 
 | Role | Scope | Used by |
 | --- | --- | --- |
-| `Website Contributor` | Backend identity, backend App Service | Deploy the backend ZIP |
-| `Website Contributor` | Frontend identity, App Service | Deploy the frontend ZIP |
+| `Support Desk SWA Deployer <environment>` | Deployment identity, generated Static Web App | Read the app and retrieve its deployment token |
 
 The workflows pin every action to a full commit SHA and grant `id-token: write`
-only to deployment jobs. Frontend dependencies are installed and production
-assets are packaged in a separate job that cannot request an OIDC token.
+only to the deployment job. The deployment token is masked and exists only in
+that job's memory; it is not stored as a GitHub secret.
 
 Part 2, [`docs/02-github-action-setup.md`](docs/02-github-action-setup.md), uses
 `infra/configure-github-actions.ps1` to create the identities, federated
 credentials, role assignments, environments, and variables in the
-participant's verified fork. The script also enables both workflows in that
+participant's verified fork. The script also enables the workflow in that
 fork after the participant completes GitHub's one-time Actions opt-in from the
 fork's Actions tab.
 
@@ -287,10 +269,10 @@ must be replaced by a durable data store before any production use.
   and server-validated tokens in a real system.
 - Request models reject unknown fields, validate enums, trim text, cap field
   lengths, and reject bodies larger than 16 KB.
-- CORS permits only `FRONTEND_ORIGIN`; credentials are not enabled.
+- The deployed frontend and API are same-origin, so no browser CORS exception
+  is required.
 - Responses set no-sniff, frame, referrer, permissions, and no-store headers.
-- Uvicorn access logging is disabled in App Service. Application code never
-  logs ticket subjects or descriptions.
+- Application code never logs ticket subjects or descriptions.
 - Azure Monitor ingestion and query endpoints are public, but telemetry access
   still requires Azure RBAC. Private endpoints and network isolation are outside
   this non-production workshop baseline.

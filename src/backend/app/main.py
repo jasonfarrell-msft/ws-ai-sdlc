@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import os
 import logging
 from dataclasses import dataclass
 from typing import Annotated, Literal, cast
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -60,14 +58,6 @@ def require_role(expected: Literal["requester", "agent"]):
 
 app = FastAPI(title="Support Desk Simulator API", version="1.0.0", docs_url=None, redoc_url=None)
 app.state.store = SupportStore()
-frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[frontend_origin],
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
-    allow_headers=["Content-Type", "x-demo-user", "x-demo-role"],
-)
 
 
 @app.middleware("http")
