@@ -54,6 +54,52 @@ Use a PowerShell 7 terminal on Windows, macOS, or Linux. You need:
 The deployment uses Microsoft Entra authentication. It stores no Azure client
 secret or Static Web Apps deployment token.
 
+### Install the tools
+
+Skip any tool that you already have at the required version. Step 2 verifies
+the result.
+
+On Windows:
+
+```powershell
+winget install --exact --id Git.Git
+winget install --exact --id GitHub.cli
+winget install --exact --id Microsoft.PowerShell
+winget install --exact --id Python.Python.3.11
+winget install --exact --id OpenJS.NodeJS.LTS
+winget install --exact --id Microsoft.AzureCLI
+```
+
+On macOS:
+
+```powershell
+brew install git gh python@3.11 node azure-cli
+brew install --cask powershell
+```
+
+On Ubuntu:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y git curl software-properties-common
+sudo snap install powershell --classic
+sudo snap install gh
+sudo add-apt-repository -y ppa:deadsnakes/ppa
+sudo apt-get install -y python3.11 python3.11-venv
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+```
+
+Open a new PowerShell 7 terminal so that the updated `PATH` applies, then add
+Bicep and the Static Web Apps CLI on every platform. `deploy.ps1` calls `swa`
+directly, so install that CLI globally rather than running it through `npx`:
+
+```powershell
+az bicep install
+npm install --global @azure/static-web-apps-cli@latest
+```
+
 ## 1. Fork and clone the repository
 
 ```powershell
@@ -100,17 +146,14 @@ python3.11 --version
 python --version
 ```
 
-`deploy.ps1` calls `swa` directly, so install or update the Static Web Apps CLI
-globally if the command is missing or older than 2.0.10:
-
-```powershell
-npm install --global @azure/static-web-apps-cli@latest
-swa --version
-```
-
 The interpreter that `deploy.ps1` selects must report 3.11 exactly. Static Web
 Apps managed functions do not support Python 3.12 or later, and `deploy.ps1`
-stops if it finds another version.
+stops if it finds another version. On Windows, `winget` installs Python 3.11 as
+`python`; if you keep several versions side by side, run `py --list-paths` and
+confirm that the 3.11 entry is the one `python` resolves to.
+
+The Static Web Apps CLI must report 2.0.10 or newer. If it does not, rerun the
+global install from the prerequisites.
 
 ## 3. Sign in and create the resource group
 

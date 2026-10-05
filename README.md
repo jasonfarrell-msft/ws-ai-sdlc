@@ -71,7 +71,8 @@ docs/         Reserved for workshop part files supplied separately
 ## Local development
 
 Prerequisites are PowerShell 7, Python 3.11, Node.js 22 or newer, and Azure
-Static Web Apps CLI 2.0.10 or newer.
+Static Web Apps CLI 2.0.10 or newer. `docs/01-azure-foundation.md` has
+per-platform install commands for every tool.
 
 Start the API:
 
@@ -102,7 +103,13 @@ frontend. The Azure deployment leaves it unset so the browser uses the Static
 Web Apps same-origin `/api` route.
 
 To emulate the integrated Azure host locally, install Azure Functions Core
-Tools v4, build the frontend, and start the Static Web Apps CLI:
+Tools v4:
+
+```powershell
+npm install --global azure-functions-core-tools@4 --unsafe-perm true
+```
+
+Then build the frontend and start the Static Web Apps CLI:
 
 ```powershell
 Set-Location src/frontend
