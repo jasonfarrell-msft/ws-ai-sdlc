@@ -1,6 +1,6 @@
 # Azure deployment plan
 
-**Status:** Implementation validated locally; Azure what-if required
+**Status:** GitHub-hosted application/container validation passed; Azure configuration and what-if required
 
 ## Purpose
 
@@ -69,8 +69,8 @@ registry password, or client secret is stored. Updates are not atomic.
 ## Validation checklist
 
 - [x] FastAPI regression tests pass (8 tests on the existing local Python environment).
-- [ ] Frontend type checking and production build succeed.
-- [ ] Docker images build and Compose smoke tests pass.
+- [x] Frontend type checking and production build succeed on GitHub.
+- [x] Both Docker images build and Compose smoke tests pass on GitHub.
 - [x] Bicep compilation succeeds (three documented `BCP081` API type warnings remain).
 - [x] PowerShell deployment scripts parse successfully.
 - [ ] Resource-group ARM what-if succeeds in a target subscription.
@@ -88,3 +88,11 @@ Local commands must honor the global corporate registry policy; Compose can
 receive its non-secret registry URL through `NPM_CONFIG_REGISTRY`. GitHub-hosted
 validation and Azure remote builds use public npm. The workflow gates Azure
 deployment on frontend build and full Docker Compose integration tests.
+
+GitHub Actions run
+[37378291181](https://github.com/jasonfarrell-msft/ws-ai-sdlc/actions/runs/37378291181)
+passed backend tests, the frontend production build, Bicep compilation, and both
+container builds plus integration smoke tests. The deployment job stopped before
+Azure sign-in because `AZURE_CLIENT_ID` is not configured in
+`workshop-deployment`. Complete Parts 1 and 2 to provision the target and
+configure the environment variables before attempting Azure deployment.
