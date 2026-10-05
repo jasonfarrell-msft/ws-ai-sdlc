@@ -4,7 +4,7 @@ services:
     ports:
       - "127.0.0.1:5050:80"
     healthcheck:
-      test: ["CMD", "python", "-c", "import json, urllib.request; assert json.load(urllib.request.urlopen('http://localhost/api/health', timeout=5))['status'] == 'healthy'"]
+      test: ["CMD", "python", "-c", "import json, urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1/api/health', timeout=5))['status'] == 'healthy'"]
       interval: 5s
       timeout: 10s
       retries: 12
@@ -22,7 +22,7 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/api/health | grep -q '\"healthy\"'"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/api/health | grep -q '\"healthy\"'"]
       interval: 5s
       timeout: 10s
       retries: 12
