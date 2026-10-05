@@ -85,12 +85,19 @@ gh api "repos/$GITHUB_REPOSITORY" `
 git --version
 gh --version
 pwsh --version
-python --version
 node --version
 npm --version
 swa --version
 az version --query '"azure-cli"' --output tsv
 az bicep version
+```
+
+`deploy.ps1` packages the API with `python3.11` when that command exists and
+otherwise falls back to `python`, so check whichever one you have:
+
+```powershell
+python3.11 --version
+python --version
 ```
 
 `deploy.ps1` calls `swa` directly, so install or update the Static Web Apps CLI
@@ -101,9 +108,9 @@ npm install --global @azure/static-web-apps-cli@latest
 swa --version
 ```
 
-Python must report 3.11 exactly. Static Web Apps managed functions do not
-support Python 3.12 or later, and `deploy.ps1` stops if it finds another
-version.
+The interpreter that `deploy.ps1` selects must report 3.11 exactly. Static Web
+Apps managed functions do not support Python 3.12 or later, and `deploy.ps1`
+stops if it finds another version.
 
 ## 3. Sign in and create the resource group
 
@@ -162,8 +169,8 @@ The script:
 5. Retrieves the generated Static Web Apps deployment token into process
    memory.
 6. Atomically uploads the frontend and managed Python API.
-7. Clears the token and temporary API package.
-8. Checks the application root and `/api/health`.
+7. Restores the previous token value and removes the temporary API package.
+8. Checks `/api/health` and then the application root.
 
 Step 3 downloads Linux `manylinux` wheels for Python 3.11 rather than wheels for
 your own operating system, because `swa deploy` uploads the API exactly as

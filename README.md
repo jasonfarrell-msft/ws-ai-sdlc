@@ -20,7 +20,7 @@ ticketing systems, or AI services.
   loading, error, and empty states
 - Deterministically seeded, process-local storage
 - Health checks, structured API errors, request limits, role authorization,
-  restricted CORS, and secure response headers
+  same-origin API routing, and secure response headers
 
 The baseline intentionally has **no AI functionality**. Future workshop part
 files under `docs/` will define the epic and the **AI Grounded Response
