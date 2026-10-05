@@ -150,7 +150,7 @@ Enter 2-5 letters when prompted. The script lowercases the initials and appends
 ```powershell
 pwsh ./infra/deploy.ps1 `
   -ResourceGroup $RESOURCE_GROUP `
-  -Label JRF
+  -Initials JRF
 ```
 
 The script:
