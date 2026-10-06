@@ -54,60 +54,29 @@ telemetry requires SDK instrumentation that this baseline does not configure.
 
 ## Prerequisites
 
-Use a PowerShell 7 terminal on Windows, macOS, or Linux. You need:
+Run every command in this guide from a PowerShell 7 terminal. You need:
 
 - Access to an Azure subscription
 - Permission to create resources, custom role definitions, and role assignments
   in a dedicated resource group
 - Azure CLI 2.48.1 or newer with Bicep
 - Git and GitHub CLI
-- PowerShell 7
-- Python 3.11 and Node.js 22 or newer with npm for local development
-- Docker with Compose for local container verification (optional for Azure builds)
 
 Azure image builds run in ACR, so deployment does not require local Python,
-Node.js, Docker, or the Static Web Apps CLI. Deployment uses Microsoft Entra
+Node.js, or Docker. Deployment uses Microsoft Entra
 authentication, not a stored client secret or registry password.
 
-### Install the tools
+### Prepare the tools
 
-Skip any tool that you already have at the required version. Step 2 verifies
-the result.
+Install any missing prerequisites before starting:
 
-On Windows:
+- [PowerShell 7](https://learn.microsoft.com/powershell/scripting/install/installing-powershell)
+- [Git](https://git-scm.com/downloads)
+- [GitHub CLI](https://cli.github.com/)
+- [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
 
-```powershell
-winget install --exact --id Git.Git
-winget install --exact --id GitHub.cli
-winget install --exact --id Microsoft.PowerShell
-winget install --exact --id Python.Python.3.11
-winget install --exact --id OpenJS.NodeJS.LTS
-winget install --exact --id Microsoft.AzureCLI
-```
-
-On macOS:
-
-```powershell
-brew install git gh python@3.11 node azure-cli
-brew install --cask powershell
-```
-
-On Ubuntu:
-
-```bash
-sudo apt-get update
-sudo apt-get install -y git curl software-properties-common
-sudo snap install powershell --classic
-sudo snap install gh
-sudo add-apt-repository -y ppa:deadsnakes/ppa
-sudo apt-get install -y python3.11 python3.11-venv
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs
-curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-```
-
-Open a new PowerShell 7 terminal so that the updated `PATH` applies, then add
-Bicep and install or update the Container Apps extension on every platform:
+Open a new PowerShell terminal after installation, then add Bicep and the
+Container Apps extension:
 
 ```powershell
 az bicep install
@@ -144,9 +113,7 @@ gh api "repos/$GITHUB_REPOSITORY" `
 ```powershell
 git --version
 gh --version
-pwsh --version
-node --version
-npm --version
+$PSVersionTable.PSVersion
 az version --query '"azure-cli"' --output tsv
 az bicep version
 az containerapp --help
@@ -188,7 +155,7 @@ az provider register --namespace Microsoft.Insights --wait
 ## 4. Validate the infrastructure
 
 ```powershell
-pwsh ./infra/validate.ps1 `
+./infra/validate.ps1 `
   -ResourceGroup $RESOURCE_GROUP
 ```
 
@@ -200,31 +167,10 @@ The current Bicep CLI may warn that the documented GA Container Apps API
 succeeds; ARM what-if remains necessary to validate resource properties and
 regional availability.
 
-Before Azure deployment, if Docker is available, verify both images locally:
-
-```powershell
-$env:NPM_CONFIG_REGISTRY = npm config get registry
-docker compose up --build --detach --wait
-python ./infra/test-containers.py
-docker compose down
-```
-
-Use `python3` instead of `python` if that is your installed command. The smoke
-test checks direct and proxied health, frontend headers, API errors, and a
-synthetic ticket creation, assignment, and resolution. It does not use real
-credentials or customer data.
-
-Local npm installation follows the global corporate registry policy. The
-environment variable passes that registry URL into the Docker build without
-changing global npm configuration. Do not use it for tokens or credential-bearing
-URLs. GitHub-hosted Actions and Azure remote builds use public npm. If a corporate
-feed lacks a required package, have the feed administrator resolve it rather
-than bypassing the local policy.
-
 ## 5. Deploy the application
 
 ```powershell
-pwsh ./infra/deploy.ps1 `
+./infra/deploy.ps1 `
   -ResourceGroup $RESOURCE_GROUP
 ```
 
@@ -232,7 +178,7 @@ Enter 2-5 letters when prompted. The script lowercases the initials and appends
 `01`; for example, `JRF` becomes `jrf01`. For non-interactive use:
 
 ```powershell
-pwsh ./infra/deploy.ps1 `
+./infra/deploy.ps1 `
   -ResourceGroup $RESOURCE_GROUP `
   -Initials JRF
 ```
@@ -269,7 +215,7 @@ If provisioning succeeds but code deployment fails, fix the reported problem
 and rerun the same command. To remove the environment instead:
 
 ```powershell
-pwsh ./infra/destroy.ps1 `
+./infra/destroy.ps1 `
   -ResourceGroup $RESOURCE_GROUP `
   -EnvironmentName '<initials>01' `
   -ConfirmEnvironment '<initials>01'
