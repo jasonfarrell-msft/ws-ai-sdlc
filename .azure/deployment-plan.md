@@ -1,83 +1,76 @@
 # Azure deployment plan
 
-**Status:** App Service migration implemented; Azure what-if awaits an active target resource group
+**Status:** .NET 10 Blazor App Service migration implemented; Azure what-if requires an active target resource group
 
 ## Purpose
 
-Deploy the Support Desk Simulator into a dedicated user-provided resource group
-through a repeatable deployment stack. Host the React frontend and FastAPI API
-in one code-based Linux Azure App Service Web App.
+Deploy the Support Desk Simulator through a repeatable deployment stack. Host
+the Blazor frontend and ASP.NET Core API in one code-based Linux Azure App
+Service Web App.
 
 ## Application
 
 | Component | Technology | Azure target |
 | --- | --- | --- |
-| Frontend | React 19, TypeScript, Vite | Static assets served by FastAPI |
-| Backend | Python 3.13, FastAPI, Uvicorn | Azure App Service |
+| Frontend | .NET 10 Blazor Web App, Interactive Server | Azure App Service |
+| Backend | ASP.NET Core Minimal APIs and singleton service | Same Web App |
+| Tests | MSTest and ASP.NET Core test host | GitHub-hosted runner |
 
-The browser and API share one HTTPS origin. FastAPI returns the compiled SPA for
-frontend routes and preserves structured 404 responses for missing API routes
-and assets.
+The browser and API share one HTTPS origin. There is no JavaScript source,
+Node.js toolchain, npm manifest, npm dependency, Python runtime, or frontend
+package build. The Microsoft-provided Blazor bootstrap is supplied by the
+ASP.NET Core shared framework.
 
 ## Infrastructure
 
 The Bicep deployment creates:
 
 - One Basic B1 Linux App Service Plan with one instance
-- One code-based Python 3.13 Web App with HTTPS-only ingress
+- One code-based .NET 10 Web App with HTTPS-only ingress and WebSockets
 - A system-assigned managed identity for future Azure service access
 - A Log Analytics workspace with 30-day retention
 - Workspace-based Application Insights
 - App Service health checks against `/api/health`
 - FTP publishing disabled and TLS 1.2 or newer required
 
-There is no ACR, Container Apps environment, image-pull identity, registry
-credential, deployment token, or custom Azure role.
-
 ## Deployment flow
 
-1. Run `validate.ps1` to compile Bicep and execute a resource-group what-if.
-2. Run `deploy.ps1` to create or update the resource-group deployment stack.
-3. Build the React production assets with locked npm dependencies.
-4. Package the FastAPI source, Python requirements, and frontend assets.
-5. ZIP-deploy the package; App Service restores Python dependencies.
-6. Verify `/api/health` and the application root.
+1. `validate.ps1` compiles Bicep and runs a resource-group what-if.
+2. `deploy.ps1` creates or updates the deployment stack.
+3. `dotnet publish` builds the complete UI and API.
+4. PowerShell creates one ZIP from the publish directory.
+5. Azure CLI deploys the compiled output to App Service.
+6. The script verifies `/api/health` and the rendered Blazor application.
 
-GitHub uses the same package format. It authenticates with environment-scoped
-OIDC and receives the built-in `Website Contributor` role only on the generated
-Web App.
+GitHub uses the same publish/package model. It authenticates with
+environment-scoped OIDC and receives the built-in `Website Contributor` role
+only on the generated Web App.
 
 ## Security and cost decisions
 
 - One public HTTPS endpoint avoids CORS and public backend coordination.
-- The Web App is HTTPS-only, FTP publishing is disabled, and no credentials are
-  stored in source or GitHub.
-- The GitHub OIDC subject is limited to the `workshop-deployment` environment,
-  whose branch policy allows only `main`.
-- Pull request jobs have read-only repository access and no Azure OIDC
-  permission.
-- One Basic B1 instance is sufficient for the process-local demo store and
-  avoids implying high availability.
+- WebSockets support Blazor Interactive Server.
+- The Web App is HTTPS-only, FTP publishing is disabled, and no deployment
+  credential is stored in source or GitHub.
+- The GitHub OIDC subject is limited to the `workshop-deployment` environment
+  and `main` branch policy.
+- Pull request jobs receive no Azure OIDC permission.
+- One Basic B1 instance matches the process-local demo store.
 - App Service compute and log ingestion can incur charges.
-- Demo identity headers remain intentionally spoofable and are not production
-  authentication.
-- Process-local ticket state resets whenever the application restarts.
+- Demo identities are intentionally spoofable and are not authentication.
 
 ## Validation checklist
 
-- [x] FastAPI regression tests pass (8 tests on Python 3.13).
-- [ ] A fresh local frontend install/build is blocked because the configured
-  corporate npm mirror does not contain `yallist@3.1.1`; the unchanged frontend
-  build previously passed on GitHub-hosted runners.
-- [x] Combined same-origin application smoke tests pass (4 tests using the
-  existing production assets).
-- [x] Bicep compilation succeeds. The latest GA Microsoft.Web `2026-08-01`
-  resources produce `BCP081` warnings because local Bicep types lag the live
-  provider API.
-- [x] PowerShell deployment scripts parse successfully.
-- [ ] Resource-group ARM what-if is blocked while the selected target resource
-  group is in Azure's deprovisioning state.
-- [x] GitHub Actions workflow syntax is valid.
-- [x] Security and architecture review is complete. The demo accepts the
-  documented residual risk that App Service basic publishing policies remain at
-  their platform defaults.
+- [x] .NET solution restores from committed NuGet lock files.
+- [x] C# and Razor source formatting is enforced.
+- [x] .NET Release build succeeds.
+- [x] Thirteen MSTest unit and hosted integration tests pass.
+- [x] Published application health, rendered UI, and Blazor negotiation pass.
+- [x] Bicep compilation succeeds; target-resource-group what-if remains a
+  pre-deployment step.
+- [x] PowerShell scripts parse successfully.
+- [x] Workflow YAML parses successfully.
+- [x] Repository scan confirms no JavaScript, TypeScript, npm, Node.js, or
+  Python source/tooling remains.
+- [x] Security and architecture review is complete. The user accepted the
+  documented synthetic demo-identity risk.

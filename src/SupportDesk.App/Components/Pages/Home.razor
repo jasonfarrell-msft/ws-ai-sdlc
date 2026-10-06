@@ -1,0 +1,390 @@
+@page "/"
+@using SupportDesk.App.Domain
+@using SupportDesk.App.Services
+@inject ISupportStore Store
+
+<PageTitle>Support Desk Simulator</PageTitle>
+
+<div class="app-shell">
+    <header class="topbar">
+        <button class="brand" type="button" @onclick="ShowTickets">
+            <span class="brand-mark">S</span>
+            <span><strong>Support Desk</strong><small>Simulator</small></span>
+        </button>
+        <nav aria-label="Primary navigation">
+            <button type="button" class="@NavClass(View.Tickets)" @onclick="ShowTickets">Tickets</button>
+            <button type="button" class="@NavClass(View.Knowledge)" @onclick="ShowKnowledge">Knowledge</button>
+        </nav>
+        <div class="identity">
+            <label>
+                <span class="sr-only">Demo identity</span>
+                <select value="@identity.UserName" @onchange="ChangeIdentity">
+                    @foreach (var candidate in Store.Identities)
+                    {
+                        <option value="@candidate.UserName">@candidate.DisplayName · @candidate.Role.ToString().ToLowerInvariant()</option>
+                    }
+                </select>
+            </label>
+            <span class="avatar" aria-hidden="true">@identity.Initials</span>
+        </div>
+    </header>
+
+    <div class="demo-banner" role="note">
+        <strong>Demo environment</strong>
+        <span>Synthetic data only. Identities are simulated and provide no real authentication.</span>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(notice))
+    {
+        <div class="toast" role="status">
+            @notice
+            <button type="button" aria-label="Dismiss message" @onclick="DismissNotice">×</button>
+        </div>
+    }
+
+    <main>
+        @if (view == View.Knowledge)
+        {
+            <section class="library">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Reference material</p>
+                        <h1>Knowledge library</h1>
+                    </div>
+                    <span class="count">@FilteredArticles.Count article@(FilteredArticles.Count == 1 ? string.Empty : "s")</span>
+                </div>
+                <label class="search-field library-search">
+                    <span aria-hidden="true">⌕</span>
+                    <span class="sr-only">Search knowledge articles</span>
+                    <input maxlength="100" placeholder="Search articles" @bind="articleSearch" @bind:event="oninput" />
+                </label>
+                <div class="library-grid">
+                    <div class="article-list" aria-label="Knowledge articles">
+                        @if (FilteredArticles.Count == 0)
+                        {
+                            <p class="empty-state">No articles match your search.</p>
+                        }
+                        @foreach (var item in FilteredArticles)
+                        {
+                            <button type="button" class="article-card @(article?.Id == item.Id ? "selected" : null)" @onclick="() => article = item">
+                                <span class="article-category">@item.Category</span>
+                                <strong>@item.Title</strong>
+                                <span>@item.Summary</span>
+                                <small>@item.Id · Version @item.Version</small>
+                            </button>
+                        }
+                    </div>
+                    <aside class="article-detail">
+                        @if (article is null)
+                        {
+                            <div class="detail-placeholder">
+                                <span aria-hidden="true">i</span>
+                                <h2>Select an article</h2>
+                                <p>Choose an article to review its guidance.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="eyebrow">@article.Category · @article.Id</p>
+                            <h2>@article.Title</h2>
+                            <p class="article-meta">Version @article.Version · Updated @article.UpdatedAt.ToString("MMM d, yyyy")</p>
+                            <p class="article-content">@article.Content</p>
+                        }
+                    </aside>
+                </div>
+            </section>
+        }
+        else if (creating)
+        {
+            <section class="create-card">
+                <p class="eyebrow">Requester workflow</p>
+                <h1>Create a support ticket</h1>
+                <p>Describe a synthetic support issue. Do not enter real customer or confidential information.</p>
+                <EditForm Model="newTicket" OnValidSubmit="CreateTicket">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+                    <label>
+                        <span>Subject</span>
+                        <InputText @bind-Value="newTicket.Subject" maxlength="120" />
+                        <ValidationMessage For="() => newTicket.Subject" />
+                    </label>
+                    <label>
+                        <span>Description</span>
+                        <InputTextArea @bind-Value="newTicket.Description" maxlength="4000" rows="7" />
+                        <ValidationMessage For="() => newTicket.Description" />
+                    </label>
+                    <div class="form-grid">
+                        <label>
+                            <span>Priority</span>
+                            <InputSelect @bind-Value="newTicket.Priority">
+                                <option value="">Select priority</option>
+                                @foreach (var priority in Enum.GetValues<TicketPriority>())
+                                {
+                                    <option value="@priority">@priority</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="() => newTicket.Priority" />
+                        </label>
+                        <label>
+                            <span>Product</span>
+                            <InputSelect @bind-Value="newTicket.Product">
+                                <option value="">Select product</option>
+                                @foreach (var product in Store.Products)
+                                {
+                                    <option value="@product">@product</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="() => newTicket.Product" />
+                        </label>
+                    </div>
+                    <div class="form-actions">
+                        <button class="secondary-button" type="button" @onclick="CancelCreate">Cancel</button>
+                        <button class="primary-button" type="submit">Create ticket</button>
+                    </div>
+                </EditForm>
+            </section>
+        }
+        else
+        {
+            <div class="workspace-actions">
+                @if (identity.Role == UserRole.Requester)
+                {
+                    <button class="primary-button" type="button" @onclick="BeginCreate">＋ Create ticket</button>
+                }
+            </div>
+            <div class="ticket-workspace">
+                <section class="queue-panel">
+                    <div class="section-heading">
+                        <div>
+                            <p class="eyebrow">Support operations</p>
+                            <h1>Ticket queue</h1>
+                        </div>
+                        <span class="count">@FilteredTickets.Count ticket@(FilteredTickets.Count == 1 ? string.Empty : "s")</span>
+                    </div>
+                    <div class="filters">
+                        <label class="search-field">
+                            <span aria-hidden="true">⌕</span>
+                            <span class="sr-only">Search tickets</span>
+                            <input maxlength="100" placeholder="Search tickets" @bind="search" @bind:event="oninput" />
+                        </label>
+                        <label>
+                            <span class="sr-only">Status</span>
+                            <select @bind="statusFilter">
+                                <option value="">All statuses</option>
+                                @foreach (var status in Enum.GetValues<TicketStatus>())
+                                {
+                                    <option value="@status">@status</option>
+                                }
+                            </select>
+                        </label>
+                        <label>
+                            <span class="sr-only">Priority</span>
+                            <select @bind="priorityFilter">
+                                <option value="">All priorities</option>
+                                @foreach (var priority in Enum.GetValues<TicketPriority>())
+                                {
+                                    <option value="@priority">@priority</option>
+                                }
+                            </select>
+                        </label>
+                        <label>
+                            <span class="sr-only">Product</span>
+                            <select @bind="productFilter">
+                                <option value="">All products</option>
+                                @foreach (var product in Store.Products)
+                                {
+                                    <option value="@product">@product</option>
+                                }
+                            </select>
+                        </label>
+                    </div>
+                    <div class="ticket-list">
+                        @if (FilteredTickets.Count == 0)
+                        {
+                            <p class="empty-state">No tickets match the current filters.</p>
+                        }
+                        @foreach (var ticket in FilteredTickets)
+                        {
+                            <button type="button" class="ticket-row @(selectedTicket?.Id == ticket.Id ? "selected" : null)" @onclick="() => SelectTicket(ticket.Id)">
+                                <span class="priority-dot @Css(ticket.Priority)" aria-hidden="true"></span>
+                                <span class="ticket-main">
+                                    <span class="ticket-subject">@ticket.Subject</span>
+                                    <span class="ticket-meta">@ticket.Id · @ticket.Product · Updated @ticket.UpdatedAt.ToString("MMM d")</span>
+                                </span>
+                                <span class="badge status-@Css(ticket.Status)">@ticket.Status</span>
+                                <span class="chevron" aria-hidden="true">›</span>
+                            </button>
+                        }
+                    </div>
+                </section>
+                <aside class="detail-panel">
+                    @if (selectedTicket is null)
+                    {
+                        <div class="detail-placeholder">
+                            <span aria-hidden="true">↗</span>
+                            <h2>Select a ticket</h2>
+                            <p>Choose a ticket to review details and activity.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="detail-top">
+                            <span>@selectedTicket.Id</span>
+                            <span class="badge status-@Css(selectedTicket.Status)">@selectedTicket.Status</span>
+                        </div>
+                        <h2>@selectedTicket.Subject</h2>
+                        <div class="detail-facts">
+                            <div><span>Requester</span><strong>@selectedTicket.Requester</strong></div>
+                            <div><span>Assigned to</span><strong>@(selectedTicket.Assignee ?? "Unassigned")</strong></div>
+                            <div><span>Product</span><strong>@selectedTicket.Product</strong></div>
+                            <div><span>Priority</span><strong class="priority-text @Css(selectedTicket.Priority)">@selectedTicket.Priority</strong></div>
+                        </div>
+                        <div class="description">
+                            <h3>Description</h3>
+                            <p>@selectedTicket.Description</p>
+                        </div>
+                        @if (identity.Role == UserRole.Agent)
+                        {
+                            <div class="agent-actions">
+                                <h3>Agent actions</h3>
+                                <button class="secondary-button" type="button" @onclick="AssignTicket" disabled="@(selectedTicket.Assignee == identity.DisplayName)">Assign to me</button>
+                                <label>
+                                    <span>Status</span>
+                                    <select value="@selectedTicket.Status" @onchange="ChangeStatus">
+                                        @foreach (var status in Enum.GetValues<TicketStatus>())
+                                        {
+                                            <option value="@status">@status</option>
+                                        }
+                                    </select>
+                                </label>
+                            </div>
+                        }
+                        <div class="timeline">
+                            <h3>Activity</h3>
+                            @foreach (var item in selectedHistory.OrderByDescending(item => item.CreatedAt))
+                            {
+                                <div class="timeline-item">
+                                    <span class="timeline-dot" aria-hidden="true"></span>
+                                    <div><strong>@item.Message</strong><span>@item.Actor · @item.CreatedAt.ToString("MMM d, yyyy · h:mm tt")</span></div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </aside>
+            </div>
+        }
+    </main>
+</div>
+
+@code {
+    private DemoIdentity identity = default!;
+    private View view = View.Tickets;
+    private bool creating;
+    private string notice = string.Empty;
+    private string search = string.Empty;
+    private string statusFilter = string.Empty;
+    private string priorityFilter = string.Empty;
+    private string productFilter = string.Empty;
+    private string articleSearch = string.Empty;
+    private Ticket? selectedTicket;
+    private IReadOnlyList<TicketHistory> selectedHistory = [];
+    private Article? article;
+    private CreateTicketRequest newTicket = NewTicket();
+
+    private IReadOnlyList<Ticket> FilteredTickets => Store.ListTickets(new(
+        Parse<TicketStatus>(statusFilter),
+        Parse<TicketPriority>(priorityFilter),
+        productFilter,
+        search));
+
+    private IReadOnlyList<Article> FilteredArticles => Store.ListArticles(articleSearch);
+
+    protected override void OnInitialized() => identity = Store.Identities.Single(item => item.Role == UserRole.Agent);
+
+    private void ShowTickets()
+    {
+        view = View.Tickets;
+        creating = false;
+    }
+
+    private void ShowKnowledge()
+    {
+        view = View.Knowledge;
+        creating = false;
+        article = null;
+    }
+
+    private void ChangeIdentity(ChangeEventArgs args)
+    {
+        identity = Store.Identities.Single(item => item.UserName == args.Value?.ToString());
+        selectedTicket = null;
+        selectedHistory = [];
+        article = null;
+        creating = false;
+        notice = string.Empty;
+    }
+
+    private void SelectTicket(string ticketId)
+    {
+        selectedTicket = Store.GetTicket(ticketId);
+        selectedHistory = Store.GetHistory(ticketId) ?? [];
+    }
+
+    private void BeginCreate()
+    {
+        newTicket = NewTicket();
+        creating = true;
+    }
+
+    private void CancelCreate() => creating = false;
+
+    private void CreateTicket()
+    {
+        var ticket = Store.CreateTicket(newTicket, identity);
+        creating = false;
+        search = statusFilter = priorityFilter = productFilter = string.Empty;
+        notice = $"{ticket.Id} created.";
+        SelectTicket(ticket.Id);
+    }
+
+    private void AssignTicket()
+    {
+        if (selectedTicket is null)
+        {
+            return;
+        }
+
+        selectedTicket = Store.AssignTicket(selectedTicket.Id, identity);
+        selectedHistory = Store.GetHistory(selectedTicket!.Id) ?? [];
+        notice = "Ticket assigned to you.";
+    }
+
+    private void ChangeStatus(ChangeEventArgs args)
+    {
+        if (selectedTicket is null || !Enum.TryParse<TicketStatus>(args.Value?.ToString(), out var status))
+        {
+            return;
+        }
+
+        selectedTicket = Store.ChangeStatus(selectedTicket.Id, status, identity);
+        selectedHistory = Store.GetHistory(selectedTicket!.Id) ?? [];
+        notice = $"Status changed to {status.ToString().ToLowerInvariant()}.";
+    }
+
+    private void DismissNotice() => notice = string.Empty;
+
+    private string NavClass(View target) => view == target ? "active" : string.Empty;
+
+    private static string Css<T>(T value) where T : struct, Enum => value.ToString().ToLowerInvariant();
+
+    private static T? Parse<T>(string value) where T : struct, Enum =>
+        Enum.TryParse<T>(value, out var parsed) ? parsed : null;
+
+    private static CreateTicketRequest NewTicket() => new() { Priority = TicketPriority.Medium };
+
+    private enum View
+    {
+        Tickets,
+        Knowledge
+    }
+}

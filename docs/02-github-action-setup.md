@@ -3,11 +3,15 @@
 ## Goal
 
 Connect the fork's GitHub Actions workflow to the App Service Web App created in
-Part 1. Pull requests validate without Azure access. A change merged to `main`
-builds one application package and deploys it to the Web App.
+Part 1. Pull requests restore, format-check, build, test, publish, and smoke-test
+the .NET application without Azure access. Merges to `main` deploy the same
+published output.
 
 The setup uses GitHub OIDC and one Azure user-assigned managed identity. It
-stores no Azure client secret or App Service publishing credential in GitHub.
+stores no Azure client secret or App Service publishing credential.
+
+The workflow uses only the .NET SDK and NuGet. It contains no Node.js, npm,
+JavaScript package, Python, or frontend package-manager step.
 
 ## Prerequisites
 
@@ -35,8 +39,8 @@ $GITHUB_REPOSITORY = gh repo view `
 
 ## 2. Enable workflows in the fork
 
-GitHub disables Actions when a repository is first forked. Open the Actions
-page and select **I understand my workflows, go ahead and enable them**:
+Open the fork's Actions page and select
+**I understand my workflows, go ahead and enable them**:
 
 ```powershell
 Write-Host "https://github.com/$GITHUB_REPOSITORY/actions"
@@ -77,14 +81,9 @@ The script creates:
 | `workshop-deployment` environment | Holds non-secret Azure resource identifiers |
 | `main` branch policy | Prevents other branches from using the deployment identity |
 
-The built-in role is scoped to the Web App, not the resource group. The script
-also removes obsolete Container Apps environment variables if they exist.
-
 > [!WARNING]
 > Maintainers testing the source repository can temporarily add
 > `-SkipForkValidation`. Participants must not use that override.
-
-The script is idempotent and can be rerun with the same values.
 
 ## 5. Verify the configuration
 
@@ -104,14 +103,6 @@ AZURE_RESOURCE_GROUP
 AZURE_WEB_APP
 ```
 
-Confirm that the workflow is active:
-
-```powershell
-gh workflow list `
-  --repo $GITHUB_REPOSITORY `
-  --all
-```
-
 ## 6. Test the deployment loop
 
 ```powershell
@@ -126,17 +117,20 @@ gh run list `
 
 The workflow:
 
-1. Runs the backend regression tests.
-2. Type-checks and builds the frontend.
-3. Compiles the Bicep infrastructure.
-4. Runs the combined frontend/API smoke tests.
-5. Builds one ZIP deployment package.
-6. Signs in to Azure through OIDC.
-7. Deploys the package to App Service.
-8. Verifies the health endpoint and application root.
+1. Installs the .NET 10 SDK.
+2. Restores the committed NuGet lock files in locked mode.
+3. Verifies C# and Razor formatting.
+4. Builds and runs the MSTest suite.
+5. Publishes and smoke-tests the complete Blazor/API application.
+6. Compiles the Bicep infrastructure.
+7. Signs in to Azure through OIDC.
+8. ZIP-deploys the published .NET output to App Service.
+9. Verifies the health endpoint and rendered application.
+
+No workflow step contacts npm or a public npm registry.
 
 Azure role assignments can take several minutes to propagate. If the first run
-fails with authorization denied, wait two minutes and rerun that run:
+fails with authorization denied, wait two minutes and rerun it:
 
 ```powershell
 gh run rerun '<run-id>' `
@@ -145,5 +139,5 @@ gh run rerun '<run-id>' `
 
 ## Automatic deployment setup complete
 
-Pull requests now validate without Azure access. Merges to `main` deploy the
-frontend and API together as one App Service package.
+Pull requests validate without Azure access. Merges to `main` deploy the Blazor
+frontend and ASP.NET Core backend together as one .NET App Service package.

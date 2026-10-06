@@ -21,7 +21,7 @@ Select-AzureSubscription
 Resolve-ResourceLocation -ResourceGroup $ResourceGroup
 
 if (-not $SkipCodeDeploy) {
-    Assert-Command -Name npm
+    Assert-Command -Name dotnet
 }
 
 $resolvedInitials = $Initials
@@ -117,25 +117,22 @@ function Test-ApplicationEndpoint {
 }
 
 if (-not $SkipCodeDeploy) {
-    $backendDirectory = Join-Path $script:ProjectRoot 'src/backend'
-    $frontendDirectory = Join-Path $script:ProjectRoot 'src/frontend'
+    $projectFile = Join-Path $script:ProjectRoot 'src/SupportDesk.App/SupportDesk.App.csproj'
     $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) "support-desk-$([guid]::NewGuid().ToString('N'))"
-    $stagingDirectory = Join-Path $temporaryRoot 'package'
+    $publishDirectory = Join-Path $temporaryRoot 'publish'
     $packagePath = Join-Path $temporaryRoot 'support-desk.zip'
 
     try {
-        Write-Host '2/4 Building the React application.'
-        npm --prefix $frontendDirectory ci
-        npm --prefix $frontendDirectory run build
+        Write-Host '2/4 Restoring and publishing the .NET application.'
+        dotnet restore $projectFile `
+            --locked-mode
+        dotnet publish $projectFile `
+            --configuration Release `
+            --no-restore `
+            --output $publishDirectory
 
         Write-Host '3/4 Creating and deploying the application package.'
-        New-Item -ItemType Directory -Path $stagingDirectory | Out-Null
-        Copy-Item -Path (Join-Path $backendDirectory 'app') -Destination $stagingDirectory -Recurse
-        Copy-Item -Path (Join-Path $backendDirectory 'requirements.txt') -Destination $stagingDirectory
-        $staticDirectory = Join-Path $stagingDirectory 'app/static'
-        New-Item -ItemType Directory -Path $staticDirectory | Out-Null
-        Copy-Item -Path (Join-Path $frontendDirectory 'dist/*') -Destination $staticDirectory -Recurse
-        Compress-Archive -Path (Join-Path $stagingDirectory '*') -DestinationPath $packagePath
+        Compress-Archive -Path (Join-Path $publishDirectory '*') -DestinationPath $packagePath
 
         az webapp deploy `
             --subscription $script:SubscriptionId `
@@ -151,6 +148,12 @@ if (-not $SkipCodeDeploy) {
         Write-Host '4/4 Verifying the deployed application.'
         Test-ApplicationEndpoint -Uri "$applicationUrl/api/health" -HealthEndpoint
         Test-ApplicationEndpoint -Uri $applicationUrl
+        $negotiate = Invoke-RestMethod `
+            -Uri "$applicationUrl/_blazor/negotiate?negotiateVersion=1" `
+            -Method Post
+        if ([string]::IsNullOrWhiteSpace($negotiate.connectionToken)) {
+            throw 'Blazor Interactive Server negotiation did not return a connection token.'
+        }
     }
     finally {
         if (Test-Path -LiteralPath $temporaryRoot) {
