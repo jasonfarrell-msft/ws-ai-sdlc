@@ -10,15 +10,7 @@ param(
 
     [Parameter(Mandatory)]
     [ValidateNotNullOrEmpty()]
-    [string] $ContainerRegistry,
-
-    [Parameter(Mandatory)]
-    [ValidateNotNullOrEmpty()]
-    [string] $FrontendApp,
-
-    [Parameter(Mandatory)]
-    [ValidateNotNullOrEmpty()]
-    [string] $BackendApp,
+    [string] $WebApp,
 
     [Parameter(Mandatory)]
     [ValidatePattern('^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')]
@@ -30,7 +22,7 @@ param(
 . (Join-Path $PSScriptRoot 'lib/Common.ps1')
 
 $deploymentEnvironment = 'workshop-deployment'
-$deploymentRoleName = "Support Desk Container App Deployer $EnvironmentName"
+$deploymentRoleName = 'Website Contributor'
 $sourceRepository = 'jasonfarrell-msft/ws-ai-sdlc'
 $workflowPath = '.github/workflows/deploy.yml'
 
@@ -138,7 +130,7 @@ if ($workflowState -ne 'active') {
     throw "Workflow '$workflowPath' is not active in '$Repository'."
 }
 
-$identityName = "id-gha-ca-$EnvironmentName"
+$identityName = "id-gha-web-$EnvironmentName"
 
 try {
     $identityId = az identity show `
@@ -209,9 +201,10 @@ $principalId = az identity show `
     --name $identityName `
     --query principalId `
     --output tsv
-$resourceGroupId = az group show `
+$webAppId = az webapp show `
     --subscription $script:SubscriptionId `
-    --name $ResourceGroup `
+    --resource-group $ResourceGroup `
+    --name $WebApp `
     --query id `
     --output tsv
 
@@ -219,7 +212,7 @@ $assignmentCount = az role assignment list `
     --subscription $script:SubscriptionId `
     --assignee-object-id $principalId `
     --role $deploymentRoleName `
-    --scope $resourceGroupId `
+    --scope $webAppId `
     --query 'length(@)' `
     --output tsv
 if ($assignmentCount -eq '0') {
@@ -230,13 +223,13 @@ if ($assignmentCount -eq '0') {
                 --assignee-object-id $principalId `
                 --assignee-principal-type ServicePrincipal `
                 --role $deploymentRoleName `
-                --scope $resourceGroupId `
+                --scope $webAppId `
                 --output none
             break
         }
         catch {
             if ($attempt -eq 6) {
-                throw "Could not assign '$deploymentRoleName' at scope '$resourceGroupId'. Confirm that deploy.ps1 provisioned the matching custom role."
+                throw "Could not assign '$deploymentRoleName' at scope '$webAppId'."
             }
             Write-Host 'Waiting for managed identity propagation before retrying role assignment.'
             Start-Sleep -Seconds 10
@@ -288,9 +281,7 @@ $environmentVariables = @{
     AZURE_TENANT_ID = $tenantId
     AZURE_SUBSCRIPTION_ID = $script:SubscriptionId
     AZURE_RESOURCE_GROUP = $ResourceGroup
-    AZURE_CONTAINER_REGISTRY = $ContainerRegistry
-    AZURE_FRONTEND_APP = $FrontendApp
-    AZURE_BACKEND_APP = $BackendApp
+    AZURE_WEB_APP = $WebApp
 }
 foreach ($variable in $environmentVariables.GetEnumerator()) {
     gh variable set $variable.Key `
@@ -299,16 +290,29 @@ foreach ($variable in $environmentVariables.GetEnumerator()) {
         --body $variable.Value
 }
 
+$configuredVariables = @(
+    gh variable list `
+        --repo $Repository `
+        --env $deploymentEnvironment `
+        --json name `
+        --jq '.[].name'
+)
+foreach ($staleVariable in @('AZURE_CONTAINER_REGISTRY', 'AZURE_FRONTEND_APP', 'AZURE_BACKEND_APP')) {
+    if ($configuredVariables -contains $staleVariable) {
+        gh variable delete $staleVariable `
+            --repo $Repository `
+            --env $deploymentEnvironment
+    }
+}
+
 Write-Host @"
 
 GitHub Actions access configured.
 Repository:             $Repository
 Deployment environment: $deploymentEnvironment
 Deployment identity:    $identityName
-Deployment scope:        $resourceGroupId
-Container Registry:      $ContainerRegistry
-Frontend Container App:  $FrontendApp
-Backend Container App:   $BackendApp
+Deployment scope:        $webAppId
+Web App:                 $WebApp
 
-Pushes to main now validate, build, and deploy the frontend and API images.
+Pushes to main now validate, package, and deploy the combined application.
 "@

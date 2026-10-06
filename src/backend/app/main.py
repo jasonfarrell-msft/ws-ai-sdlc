@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
+from pathlib import Path as FileSystemPath
 from typing import Annotated, Literal, cast
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .models import ArticleFilters, ChangeStatus, CreateTicket, TicketFilters
@@ -18,6 +20,10 @@ DEMO_IDENTITIES = {
     ("maya.chen", "requester"): "Maya Chen",
     ("jordan.lee", "agent"): "Jordan Lee",
 }
+FRONTEND_DIRECTORY = FileSystemPath(
+    os.environ.get("FRONTEND_DIST_PATH", FileSystemPath(__file__).parent / "static")
+).resolve()
+FRONTEND_INDEX = FRONTEND_DIRECTORY / "index.html"
 
 
 def error_response(status: int, code: str, message: str, details: object | None = None) -> JSONResponse:
@@ -80,7 +86,23 @@ async def security_and_size_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-    response.headers["Cache-Control"] = "no-store"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "font-src 'self'; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'none'"
+    )
+    response.headers["Cache-Control"] = (
+        "public, max-age=31536000, immutable"
+        if request.url.path.startswith("/assets/") and response.status_code == 200
+        else "no-store"
+    )
     return response
 
 
@@ -174,3 +196,18 @@ def get_article(request: Request, article_id: Annotated[str, Path(pattern=r"^KB-
     if not article:
         return error_response(404, "article_not_found", "Article was not found.")
     return {"article": article}
+
+
+@app.get("/{requested_path:path}", include_in_schema=False)
+def serve_frontend(requested_path: str):
+    if requested_path == "api" or requested_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail={"code": "route_not_found", "message": "API route was not found."})
+    if not FRONTEND_INDEX.is_file():
+        raise HTTPException(status_code=404, detail={"code": "frontend_not_built", "message": "Frontend assets are not available."})
+
+    requested_file = (FRONTEND_DIRECTORY / requested_path).resolve()
+    if requested_file.is_relative_to(FRONTEND_DIRECTORY) and requested_file.is_file():
+        return FileResponse(requested_file)
+    if requested_path.startswith("assets/"):
+        raise HTTPException(status_code=404, detail={"code": "asset_not_found", "message": "Frontend asset was not found."})
+    return FileResponse(FRONTEND_INDEX)

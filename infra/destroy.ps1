@@ -30,8 +30,18 @@ az stack group show `
     --name $stackName `
     --output none
 
-$deploymentRoleName = "Support Desk Container App Deployer $EnvironmentName"
-$identityName = "id-gha-ca-$EnvironmentName"
+$deploymentRoleName = 'Website Contributor'
+$identityName = "id-gha-web-$EnvironmentName"
+$webAppName = Get-StackOutput `
+    -ResourceGroup $ResourceGroup `
+    -StackName $stackName `
+    -OutputName webAppName
+$webAppId = az webapp show `
+    --subscription $script:SubscriptionId `
+    --resource-group $ResourceGroup `
+    --name $webAppName `
+    --query id `
+    --output tsv
 $identityId = az identity list `
     --subscription $script:SubscriptionId `
     --resource-group $ResourceGroup `
@@ -50,7 +60,7 @@ if (-not [string]::IsNullOrWhiteSpace($identityId)) {
             --subscription $script:SubscriptionId `
             --assignee-object-id $principalId `
             --role $deploymentRoleName `
-            --scope "/subscriptions/$($script:SubscriptionId)/resourceGroups/$ResourceGroup" `
+            --scope $webAppId `
             --query '[].id' `
             --output tsv
     )

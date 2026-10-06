@@ -20,6 +20,10 @@ Assert-AzureCliVersion
 Select-AzureSubscription
 Resolve-ResourceLocation -ResourceGroup $ResourceGroup
 
+if (-not $SkipCodeDeploy) {
+    Assert-Command -Name npm
+}
+
 $resolvedInitials = $Initials
 while ([string]::IsNullOrWhiteSpace($resolvedInitials)) {
     $entry = (Read-Host 'Enter your initials (2-5 letters)').Trim()
@@ -45,24 +49,10 @@ if ([string]::IsNullOrWhiteSpace($deployedBy)) {
     $deployedBy = az account show --query user.name --output tsv
 }
 
-Write-Host "Deploying environment $environmentName to $ResourceGroup."
-
 $templateFile = Join-Path $script:InfraDirectory 'main.bicep'
 $parametersFile = Join-Path $script:InfraDirectory 'main.parameters.json'
 
-$imageParameters = @()
-foreach ($component in @(@{ Name = "ca-api-$environmentName"; Parameter = 'backendImage' },
-                         @{ Name = "ca-web-$environmentName"; Parameter = 'frontendImage' })) {
-    $currentImage = az containerapp list `
-        --subscription $script:SubscriptionId `
-        --resource-group $ResourceGroup `
-        --query "[?name=='$($component.Name)'].properties.template.containers[0].image | [0]" `
-        --output tsv
-    if (-not [string]::IsNullOrWhiteSpace($currentImage)) {
-        $imageParameters += "$($component.Parameter)=$currentImage"
-    }
-}
-
+Write-Host "1/4 Provisioning App Service environment '$environmentName'."
 az stack group create `
     --subscription $script:SubscriptionId `
     --resource-group $ResourceGroup `
@@ -75,28 +65,19 @@ az stack group create `
         "deploymentLabel=$Label" `
         "deployedBy=$deployedBy" `
         "createdAt=$createdAt" `
-        @imageParameters `
     --action-on-unmanage deleteAll `
     --deny-settings-mode None `
     --yes `
     --output none
 
-$registryName = Get-StackOutput `
+$webAppName = Get-StackOutput `
     -ResourceGroup $ResourceGroup `
     -StackName $stackName `
-    -OutputName containerRegistryName
-$registryLoginServer = Get-StackOutput `
+    -OutputName webAppName
+$appServicePlanName = Get-StackOutput `
     -ResourceGroup $ResourceGroup `
     -StackName $stackName `
-    -OutputName containerRegistryLoginServer
-$backendAppName = Get-StackOutput `
-    -ResourceGroup $ResourceGroup `
-    -StackName $stackName `
-    -OutputName backendAppName
-$frontendAppName = Get-StackOutput `
-    -ResourceGroup $ResourceGroup `
-    -StackName $stackName `
-    -OutputName frontendAppName
+    -OutputName appServicePlanName
 $applicationUrl = Get-StackOutput `
     -ResourceGroup $ResourceGroup `
     -StackName $stackName `
@@ -110,7 +91,7 @@ function Test-ApplicationEndpoint {
         [switch] $HealthEndpoint
     )
 
-    for ($attempt = 1; $attempt -le 12; $attempt++) {
+    for ($attempt = 1; $attempt -le 18; $attempt++) {
         try {
             if ($HealthEndpoint) {
                 $response = Invoke-RestMethod -Uri $Uri -Method Get
@@ -119,12 +100,15 @@ function Test-ApplicationEndpoint {
                 }
             }
             else {
-                Invoke-WebRequest -Uri $Uri -Method Get -UseBasicParsing | Out-Null
+                $response = Invoke-WebRequest -Uri $Uri -Method Get -UseBasicParsing
+                if ($response.Content -notmatch 'Support Desk Simulator') {
+                    throw 'Application root did not contain the expected title.'
+                }
             }
             return
         }
         catch {
-            if ($attempt -eq 12) {
+            if ($attempt -eq 18) {
                 throw
             }
             Start-Sleep -Seconds 10
@@ -135,64 +119,56 @@ function Test-ApplicationEndpoint {
 if (-not $SkipCodeDeploy) {
     $backendDirectory = Join-Path $script:ProjectRoot 'src/backend'
     $frontendDirectory = Join-Path $script:ProjectRoot 'src/frontend'
-    $imageTag = "$environmentName-$([DateTime]::UtcNow.ToString('yyyyMMddHHmmss'))"
+    $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) "support-desk-$([guid]::NewGuid().ToString('N'))"
+    $stagingDirectory = Join-Path $temporaryRoot 'package'
+    $packagePath = Join-Path $temporaryRoot 'support-desk.zip'
 
-    Write-Host "Building the API image in Azure Container Registry '$registryName'."
-    az acr build `
-        --registry $registryName `
-        --subscription $script:SubscriptionId `
-        --image "support-desk-api:$imageTag" `
-        --file (Join-Path $backendDirectory 'Dockerfile') `
-        $backendDirectory `
-        --platform linux/amd64 `
-        --output none
+    try {
+        Write-Host '2/4 Building the React application.'
+        npm --prefix $frontendDirectory ci
+        npm --prefix $frontendDirectory run build
 
-    Write-Host "Updating the API Container App."
-    az containerapp update `
-        --subscription $script:SubscriptionId `
-        --resource-group $ResourceGroup `
-        --name $backendAppName `
-        --image "$registryLoginServer/support-desk-api:$imageTag" `
-        --output none
+        Write-Host '3/4 Creating and deploying the application package.'
+        New-Item -ItemType Directory -Path $stagingDirectory | Out-Null
+        Copy-Item -Path (Join-Path $backendDirectory 'app') -Destination $stagingDirectory -Recurse
+        Copy-Item -Path (Join-Path $backendDirectory 'requirements.txt') -Destination $stagingDirectory
+        $staticDirectory = Join-Path $stagingDirectory 'app/static'
+        New-Item -ItemType Directory -Path $staticDirectory | Out-Null
+        Copy-Item -Path (Join-Path $frontendDirectory 'dist/*') -Destination $staticDirectory -Recurse
+        Compress-Archive -Path (Join-Path $stagingDirectory '*') -DestinationPath $packagePath
 
-    Write-Host "Building the frontend image in Azure Container Registry '$registryName'."
-    az acr build `
-        --registry $registryName `
-        --subscription $script:SubscriptionId `
-        --image "support-desk-frontend:$imageTag" `
-        --file (Join-Path $frontendDirectory 'Dockerfile') `
-        $frontendDirectory `
-        --platform linux/amd64 `
-        --output none
+        az webapp deploy `
+            --subscription $script:SubscriptionId `
+            --resource-group $ResourceGroup `
+            --name $webAppName `
+            --src-path $packagePath `
+            --type zip `
+            --clean true `
+            --restart true `
+            --track-status true `
+            --output none
 
-    Write-Host "Updating the frontend Container App."
-    az containerapp update `
-        --subscription $script:SubscriptionId `
-        --resource-group $ResourceGroup `
-        --name $frontendAppName `
-        --image "$registryLoginServer/support-desk-frontend:$imageTag" `
-        --output none
-
-    $backendUrl = Get-StackOutput `
-        -ResourceGroup $ResourceGroup `
-        -StackName $stackName `
-        -OutputName backendUrl
-    Test-ApplicationEndpoint -Uri "$backendUrl/api/health" -HealthEndpoint
-    Test-ApplicationEndpoint -Uri "$applicationUrl/api/health" -HealthEndpoint
-    Test-ApplicationEndpoint -Uri $applicationUrl
+        Write-Host '4/4 Verifying the deployed application.'
+        Test-ApplicationEndpoint -Uri "$applicationUrl/api/health" -HealthEndpoint
+        Test-ApplicationEndpoint -Uri $applicationUrl
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporaryRoot) {
+            Remove-Item -LiteralPath $temporaryRoot -Recurse -Force
+        }
+    }
 }
 
 Write-Host @"
 
-Infrastructure ready$(if ($SkipCodeDeploy) { ' (application images were not deployed)' } else { '; application deployment verified' }).
+Infrastructure ready$(if ($SkipCodeDeploy) { ' (application package was not deployed)' } else { '; application deployment verified' }).
 Environment name:  $environmentName
 Deployment stack: $stackName
 Resource group:    $ResourceGroup
 Application URL:   $applicationUrl
-Frontend App:       $frontendAppName
-Backend App:        $backendAppName
-Container Registry: $registryName
+App Service plan:  $appServicePlanName
+Web App:           $webAppName
 
 To remove only this generated environment:
-pwsh ./infra/destroy.ps1 -ResourceGroup '$ResourceGroup' -EnvironmentName '$environmentName' -ConfirmEnvironment '$environmentName'
+./infra/destroy.ps1 -ResourceGroup '$ResourceGroup' -EnvironmentName '$environmentName' -ConfirmEnvironment '$environmentName'
 "@

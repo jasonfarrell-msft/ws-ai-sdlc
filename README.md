@@ -1,7 +1,7 @@
 # Support Desk Simulator
 
 A deployable baseline support application for software-delivery workshops. The
-frontend is React 19, TypeScript, and Vite; the API is Python 3.11 and FastAPI.
+frontend is React 19, TypeScript, and Vite; the API is Python 3.13 and FastAPI.
 It models a small support queue without connecting to real users, customer data,
 ticketing systems, or AI services.
 
@@ -66,12 +66,11 @@ src/
   frontend/   React 19 + TypeScript + Vite application
 infra/        Bicep plus validate, deploy, and targeted-destroy scripts
 docs/         Workshop setup and backlog-planning guides
-compose.yaml  Local frontend/backend container integration
 ```
 
 ## Local development
 
-Prerequisites are PowerShell 7, Python 3.11, and Node.js 22 or newer.
+Prerequisites are PowerShell 7, Python 3.13, and Node.js 22 or newer.
 [docs/01-azure-foundation.md](docs/01-azure-foundation.md) has
 per-platform install commands for every tool.
 
@@ -79,7 +78,7 @@ Start the API:
 
 ```powershell
 Set-Location src/backend
-$systemPython = if ($IsWindows) { 'python' } else { 'python3.11' }
+$systemPython = if ($IsWindows) { 'python' } else { 'python3.13' }
 & $systemPython -m venv .venv
 $venvPython = if ($IsWindows) {
   '.\.venv\Scripts\python.exe'
@@ -99,36 +98,12 @@ npm run dev
 ```
 
 Open `http://localhost:5173`. Vite proxies `/api` to
-`http://localhost:5050`. For a separately hosted API, set `VITE_API_BASE_URL` when building the
-frontend. The Azure deployment leaves it unset so the browser uses nginx's
-same-origin `/api` proxy.
+`http://localhost:5050`. For a separately hosted API during development, set
+`VITE_API_BASE_URL` when building the frontend. The Azure deployment leaves it
+unset because FastAPI serves both the frontend and API through one origin.
 
-To build and run the actual application images locally, use Docker with Compose
-from the repository root. Stop the local Uvicorn server first if it is using
-port 5050:
-
-```powershell
-$env:NPM_CONFIG_REGISTRY = npm config get registry
-docker compose up --build --detach --wait
-python ./infra/test-containers.py
-```
-
-Local npm commands use the corporate/global npm registry policy; do not override
-it to bypass that policy. Compose passes the non-secret registry URL to the
-frontend build. GitHub-hosted Actions and Azure remote builds use public npm.
-Never place tokens or credential-bearing URLs in Docker build arguments.
-
-Open `http://localhost:8080`. nginx forwards `/api` to the backend container;
-the backend is also available directly at `http://localhost:5050`. Compose
-binds both ports to loopback only. Use `python3` if that is your installed
-command. The smoke test creates, assigns, and resolves a synthetic ticket; it requires no extra
-Python packages.
-
-Stop and remove the local containers when finished:
-
-```powershell
-docker compose down
-```
+Local npm commands use the corporate/global npm registry policy; do not
+override it to bypass that policy.
 
 ## Tests and validation
 
@@ -178,68 +153,57 @@ Article list supports `search`. Errors use a stable shape:
 
 ## Azure architecture
 
-The application deploys as two Azure Container Apps in one shared environment:
+The application deploys to one code-based Linux Azure App Service:
 
-- **Frontend:** nginx serves the Vite production assets over managed HTTPS.
-- **Backend:** Uvicorn hosts the existing FastAPI application on Python 3.11
-  behind a separate public HTTPS endpoint.
-- **Routing:** frontend requests use the same-origin `/api` route. No deployed
-  CORS policy or build-time backend URL is required.
-- **Images:** ACR Basic builds and stores Linux/AMD64 images. Each app uses its
-  system-assigned managed identity with `AcrPull`; registry admin access and
-  anonymous pulls are disabled.
-- **Observability:** Log Analytics collects container console/system logs.
-  Workspace-based Application Insights is provisioned and its connection string
-  is passed to the API, but SDK request instrumentation is not configured.
-- **Scaling:** both apps use 0.5 vCPU and 1 GiB per replica. The frontend runs
-  1-2 replicas; the process-local backend uses one replica and one worker.
-- **Cost:** minimum replicas, registry storage/builds, and log ingestion may
-  incur charges. This is not a Static Web Apps Free-plan deployment.
+- **Web App:** Uvicorn hosts FastAPI on Python 3.13.
+- **Frontend:** FastAPI serves the compiled Vite assets and returns the SPA entry
+  point for client-side routes.
+- **API:** routes remain under `/api` on the same HTTPS origin.
+- **Compute:** one Basic B1 App Service Plan instance matches the process-local
+  data model.
+- **Observability:** Log Analytics and workspace-based Application Insights are
+  provisioned. SDK request instrumentation remains a future enhancement.
+- **Security:** HTTPS is required, FTP publishing is disabled, and the Web App
+  has a system-assigned managed identity for future Azure service access.
 
-Both apps listen on port 80 within their containers. Container Apps terminates
-public TLS; nginx uses HTTPS, the backend Host header, SNI, and certificate
-verification when proxying to the Azure backend. Its runtime `BACKEND_URL` is
-supplied by Bicep, not baked into the frontend bundle.
+There is no container build, registry, image-pull identity, cross-origin
+configuration, or custom Azure role.
 
 Validate the deployment against a dedicated workshop resource group without
 creating application resources:
 
 ```powershell
-pwsh ./infra/validate.ps1 `
+./infra/validate.ps1 `
   -ResourceGroup '<resource-group-name>'
 ```
 
 Create and deploy a fresh workshop environment:
 
 ```powershell
-pwsh ./infra/deploy.ps1 `
+./infra/deploy.ps1 `
   -ResourceGroup '<resource-group-name>'
 ```
 
-The deployment prints the application URL, both app names, and registry name.
-Provisioning is repeatable through Bicep. ACR builds the backend and frontend
-images, and the script updates each app separately, backend first. These
-updates are not atomic: preserve backward API compatibility during rollout.
-Reruns preserve existing image references while infrastructure is updated.
-An initial bootstrap image is replaced after managed identities and pull roles
-are ready; `-SkipCodeDeploy` does not deploy application images.
+The deployment prints the application URL, plan name, and Web App name.
+Provisioning is repeatable through Bicep. The script builds the frontend,
+combines it with the FastAPI source and requirements, and ZIP-deploys one
+package. `-SkipCodeDeploy` provisions only infrastructure.
 
-Migrating an existing deployment stack replaces the old Static Web Apps
-resources; review what-if and plan a maintenance window first. Remove old SWA
-deployment-role assignments before the stack update, then rerun Part 2 to
-configure the new GitHub deployment identity and target.
+Migrating an existing workshop stack with the same initials removes the
+Container Apps and ACR resources previously managed by that stack. Review
+what-if, plan a maintenance window, and rerun Part 2 for the App Service target.
 
 ## GitHub Actions deployments
 
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) tests the
-FastAPI application, builds the React application, compiles Bicep, and deploys
-separate frontend/backend images, and verifies their same-origin integration.
+FastAPI application, builds the React application, compiles Bicep, verifies the
+combined same-origin application, and deploys one ZIP package.
 
 Pull requests run validation without Azure access. Pushes to `main` deploy the
 whole application, and the workflow can also be run manually from `main`. A
 fixed concurrency group never cancels an in-progress deployment, preventing
-two releases from racing. Validation also builds and tests both containers
-locally on the runner before Azure credentials are requested.
+two releases from racing. Validation runs before Azure credentials are
+requested.
 
 Workshop participants fork this repository and configure the workflows in
 their own fork. This keeps each participant's GitHub OIDC trust, variables, and
@@ -256,9 +220,7 @@ Create one `workshop-deployment` GitHub environment with:
 | `AZURE_TENANT_ID` | Microsoft Entra tenant ID |
 | `AZURE_SUBSCRIPTION_ID` | Subscription containing the deployment |
 | `AZURE_RESOURCE_GROUP` | Existing resource group containing the application |
-| `AZURE_CONTAINER_REGISTRY` | ACR registry name |
-| `AZURE_FRONTEND_APP` | Frontend Container App name |
-| `AZURE_BACKEND_APP` | Backend Container App name |
+| `AZURE_WEB_APP` | App Service Web App name |
 
 Use a dedicated user-assigned managed identity for GitHub. Add an
 environment-scoped federated credential to the deployment identity with:
@@ -280,12 +242,11 @@ narrowest applicable scope:
 
 | Role | Scope | Used by |
 | --- | --- | --- |
-| `Support Desk Container App Deployer <environment>` | Deployment identity, dedicated workshop resource group | Upload build sources, run ACR builds, read build status/logs, update apps |
-| `AcrPull` | Each app's system-assigned identity, generated ACR | Pull private application images |
+| Built-in `Website Contributor` | Deployment identity, generated Web App | Deploy the application package |
 
 The workflows pin every action to a full commit SHA and grant `id-token: write`
-only to the deployment job. No registry password or Static Web Apps deployment
-token is used. Both images are tagged with the full Git commit SHA.
+only to the deployment job. No publishing profile or deployment password is
+used.
 
 Part 2, [`docs/02-github-action-setup.md`](docs/02-github-action-setup.md), uses
 [infra/configure-github-actions.ps1](infra/configure-github-actions.ps1) to create the identities, federated
@@ -314,10 +275,7 @@ must be replaced by a durable data store before any production use.
 - Azure Monitor ingestion and query endpoints are public, but telemetry access
   still requires Azure RBAC. Private endpoints and network isolation are outside
   this non-production workshop baseline.
-- Both Container Apps have public HTTPS ingress for this workshop. Registry
-  access is authenticated, and the frontend verifies upstream TLS certificates.
+- The App Service endpoint is public and HTTPS-only for this workshop.
 - Deployment uses Entra/OIDC and managed identity rather than stored passwords.
-  The platform's Log Analytics integration obtains a workspace key within ARM;
-  it is not checked into source or exported as a deployment output.
 - Never enter real personal, customer,
   credential, or confidential information into this simulator.

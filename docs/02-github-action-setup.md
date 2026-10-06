@@ -2,21 +2,19 @@
 
 ## Goal
 
-Connect the fork's GitHub Actions workflow to the Container Apps and registry created in
+Connect the fork's GitHub Actions workflow to the App Service Web App created in
 Part 1. Pull requests validate without Azure access. A change merged to `main`
-builds and deploys separate frontend and backend images.
+builds one application package and deploys it to the Web App.
 
 The setup uses GitHub OIDC and one Azure user-assigned managed identity. It
-stores no Azure client secret, registry password, or deployment token in GitHub.
+stores no Azure client secret or App Service publishing credential in GitHub.
 
 ## Prerequisites
 
 - Complete Part 1 and retain its deployment output.
 - Use the personal fork created in Part 1.
 - Use a PowerShell 7 terminal with authenticated Azure and GitHub CLIs.
-- Have permission to create a managed identity and role assignment in the
-  dedicated workshop resource group. Part 1 also requires permission to create the
-  environment-specific custom role definition in the resource group.
+- Have permission to create a managed identity and assign a built-in role.
 - Ensure [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) is on
   the fork's `main` branch.
 
@@ -33,13 +31,6 @@ gh repo set-default origin
 $GITHUB_REPOSITORY = gh repo view `
   --json nameWithOwner `
   --jq .nameWithOwner
-```
-
-Confirm that the repository is your fork:
-
-```powershell
-gh api "repos/$GITHUB_REPOSITORY" `
-  --jq '{repository:.full_name,isFork:.fork,admin:.permissions.admin,upstream:.parent.full_name}'
 ```
 
 ## 2. Enable workflows in the fork
@@ -63,20 +54,16 @@ gh api "repos/$GITHUB_REPOSITORY/actions/workflows" `
 ```powershell
 $RESOURCE_GROUP = '<resource-group-name>'
 $ENVIRONMENT_NAME = '<initials>01'
-$AZURE_CONTAINER_REGISTRY = '<container-registry-name>'
-$AZURE_FRONTEND_APP = 'ca-web-<initials>01'
-$AZURE_BACKEND_APP = 'ca-api-<initials>01'
+$AZURE_WEB_APP = '<web-app-name>'
 ```
 
 ## 4. Configure Azure and GitHub
 
 ```powershell
-pwsh ./infra/configure-github-actions.ps1 `
+./infra/configure-github-actions.ps1 `
   -ResourceGroup $RESOURCE_GROUP `
   -EnvironmentName $ENVIRONMENT_NAME `
-  -ContainerRegistry $AZURE_CONTAINER_REGISTRY `
-  -FrontendApp $AZURE_FRONTEND_APP `
-  -BackendApp $AZURE_BACKEND_APP `
+  -WebApp $AZURE_WEB_APP `
   -Repository $GITHUB_REPOSITORY
 ```
 
@@ -86,26 +73,12 @@ The script creates:
 | --- | --- |
 | User-assigned managed identity | Gives GitHub a secretless Azure identity |
 | Environment-scoped OIDC credential | Trusts only `workshop-deployment` in this fork |
-| Custom deployment role assignment | Allows ACR source uploads/builds/status/log access and Container App updates in the dedicated resource group |
+| Built-in `Website Contributor` assignment | Deploys only to the generated Web App |
 | `workshop-deployment` environment | Holds non-secret Azure resource identifiers |
 | `main` branch policy | Prevents other branches from using the deployment identity |
 
-The workflow signs in with OIDC and submits both Linux/AMD64 builds to ACR.
-It tags both images with the full Git commit SHA, then updates the backend app
-followed by the frontend app. Each app pulls images through its system-assigned
-identity with `AcrPull` on ACR; admin credentials are disabled.
-
-The app updates are not atomic. Keep API changes compatible with the previous
-frontend while a release is in progress. The fixed deployment concurrency group
-prevents overlapping releases, but a failed frontend update can leave the
-backend on a newer revision. Repair the failure and rerun the workflow.
-
-> [!IMPORTANT]
-> If you previously configured Static Web Apps hosting, rerun this setup with
-> the new resource names. The new Container Apps identity replaces the old
-> deployment target. Remove obsolete `AZURE_STATIC_WEB_APP` environment
-> variables and any old `id-gha-swa-<environment>` identity/role assignment after
-> confirming it is no longer used. Neither is required by the new workflow.
+The built-in role is scoped to the Web App, not the resource group. The script
+also removes obsolete Container Apps environment variables if they exist.
 
 > [!WARNING]
 > Maintainers testing the source repository can temporarily add
@@ -128,9 +101,7 @@ AZURE_CLIENT_ID
 AZURE_TENANT_ID
 AZURE_SUBSCRIPTION_ID
 AZURE_RESOURCE_GROUP
-AZURE_CONTAINER_REGISTRY
-AZURE_FRONTEND_APP
-AZURE_BACKEND_APP
+AZURE_WEB_APP
 ```
 
 Confirm that the workflow is active:
@@ -153,12 +124,16 @@ gh run list `
   --limit 5
 ```
 
-The workflow runs backend tests, the frontend build, Bicep compilation, and
-Docker Compose integration smoke tests before requesting an OIDC token.
-It then builds and deploys both application components
-and verifies direct backend health, the application root, and proxied `/api/health`.
-The runner explicitly installs Bicep and the Container Apps CLI extension;
-GitHub-hosted builds use public npm rather than local corporate registry settings.
+The workflow:
+
+1. Runs the backend regression tests.
+2. Type-checks and builds the frontend.
+3. Compiles the Bicep infrastructure.
+4. Runs the combined frontend/API smoke tests.
+5. Builds one ZIP deployment package.
+6. Signs in to Azure through OIDC.
+7. Deploys the package to App Service.
+8. Verifies the health endpoint and application root.
 
 Azure role assignments can take several minutes to propagate. If the first run
 fails with authorization denied, wait two minutes and rerun that run:
@@ -171,5 +146,4 @@ gh run rerun '<run-id>' `
 ## Automatic deployment setup complete
 
 Pull requests now validate without Azure access. Merges to `main` deploy the
-frontend and API images through the fork's dedicated identity. Container
-compute, image builds/storage, and log ingestion may incur Azure charges.
+frontend and API together as one App Service package.

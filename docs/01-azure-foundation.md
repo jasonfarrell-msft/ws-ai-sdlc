@@ -2,17 +2,21 @@
 
 ## Goal
 
-Deploy the existing Support Desk Simulator to Azure and confirm that its
-frontend and API are accessible through one HTTPS origin. This creates the
-starting point for the rest of the workshop.
+Deploy the existing Support Desk Simulator to one Azure App Service Web App and
+confirm that the frontend and API work through one HTTPS origin. This creates
+the starting point for the rest of the workshop.
 
 The deployment creates:
 
-- A React frontend served by nginx in Azure Container Apps
-- A FastAPI/Uvicorn backend in a separate Azure Container App on Python 3.11
-- An Azure Container Registry (ACR) for both images
-- Same-origin API routing under `/api` through nginx
+- One Linux App Service Plan on the Basic B1 tier
+- One Python 3.13 Web App
+- The React production build served by FastAPI
+- Same-origin API routes under `/api`
 - Log Analytics and workspace-based Application Insights
+
+The application is deployed as source and static files in one ZIP package.
+There are no containers, registries, registry credentials, or custom Azure
+roles.
 
 > [!IMPORTANT]
 > The application uses synthetic data and demo identities. Do not enter real
@@ -22,65 +26,49 @@ The deployment creates:
 
 | Component | Azure service | Configuration |
 | --- | --- | --- |
-| Frontend | Azure Container Apps | Vite assets served by nginx; public HTTPS; 1-2 replicas |
-| Backend | Azure Container Apps | FastAPI/Uvicorn on Python 3.11; public HTTPS; one replica |
-| Images | Azure Container Registry Basic | Remote Linux/AMD64 builds; managed identity pulls |
-| Routing | nginx reverse proxy | Same-origin `/api`; backend HTTPS host and SNI |
-| Monitoring | Log Analytics and Application Insights | Container console/system logs; 30-day workspace retention |
-| Deployment role | Custom Azure role definition | Build images and update apps in the dedicated resource group |
+| Application | Azure App Service | One Linux Web App on one Basic B1 plan |
+| Frontend | FastAPI static-file routes | Compiled React assets with SPA fallback |
+| Backend | FastAPI/Uvicorn | Python 3.13; one process; `/api` routes |
+| Monitoring | Log Analytics and Application Insights | 30-day workspace retention |
+| Deployment | App Service ZIP deployment | Microsoft Entra authentication; no stored deployment secret |
 
-The deployment also creates a custom Azure role named
-`Support Desk Container App Deployer <environment-name>`. It grants the
-permissions needed to upload build sources, schedule ACR builds, read build
-status/logs, and update Container Apps. Part 2 assigns this role to a workflow
-identity. Each app has a system-assigned identity with `AcrPull` on the registry;
-the registry admin account and anonymous pulls are disabled.
+App Service terminates HTTPS and forwards requests to Uvicorn. FastAPI serves
+both the API and the compiled frontend, so the browser uses one hostname and no
+CORS policy or backend URL configuration is required.
 
-Both apps share a Container Apps environment and use managed HTTPS ingress,
-with HTTP forwarded to port 80 inside each container. Both endpoints are public;
-the browser normally calls the frontend's `/api` proxy. This is a synthetic,
-non-production workshop, not a private-network production architecture.
-
-The backend runs one replica and one Uvicorn worker because its ticket store
-is process-local. A restart or revision change resets it. The frontend can scale
-to two replicas. Deployment updates the backend before the frontend, but the
-two updates are **not atomic**; API changes must remain backward compatible.
-
-Container Apps compute, ACR storage/builds, and Log Analytics ingestion can incur
-charges. One minimum replica per app avoids cold starts but is not a free-tier
-guarantee. Delete the environment when finished. Application Insights is
-provisioned and its connection string is passed to the API; automatic request
-telemetry requires SDK instrumentation that this baseline does not configure.
+The backend uses process-local synthetic storage. Restarts and deployments reset
+ticket changes. The Basic plan uses one instance because multiple instances
+would not share this state. App Service and Log Analytics can incur charges;
+delete the environment when the workshop is complete.
 
 ## Prerequisites
 
 Run every command in this guide from a PowerShell 7 terminal. You need:
 
 - Access to an Azure subscription
-- Permission to create resources, custom role definitions, and role assignments
-  in a dedicated resource group
+- Permission to create resources in a dedicated resource group
 - Azure CLI 2.48.1 or newer with Bicep
 - Git and GitHub CLI
+- Node.js 24 and npm
 
-Azure image builds run in ACR, so deployment does not require local Python,
-Node.js, or Docker. Deployment uses Microsoft Entra
-authentication, not a stored client secret or registry password.
+Python is not required for deployment. App Service installs the backend
+requirements during ZIP deployment. Local npm commands honor the configured
+global registry policy.
 
 ### Prepare the tools
 
-Install any missing prerequisites before starting:
+Install any missing prerequisites:
 
 - [PowerShell 7](https://learn.microsoft.com/powershell/scripting/install/installing-powershell)
 - [Git](https://git-scm.com/downloads)
 - [GitHub CLI](https://cli.github.com/)
 - [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
+- [Node.js 24](https://nodejs.org/)
 
-Open a new PowerShell terminal after installation, then add Bicep and the
-Container Apps extension:
+Open a new PowerShell terminal after installation, then install Bicep:
 
 ```powershell
 az bicep install
-az extension add --name containerapp --upgrade
 ```
 
 ## 1. Fork and clone the repository
@@ -116,12 +104,13 @@ gh --version
 $PSVersionTable.PSVersion
 az version --query '"azure-cli"' --output tsv
 az bicep version
-az containerapp --help
+node --version
+npm --version
+npm config get registry
 ```
 
-The API Dockerfile selects Python 3.11 regardless of your local interpreter.
-The frontend build stage uses Node.js 24. ACR builds both Linux/AMD64 images
-from their Dockerfiles.
+The registry printed by npm must match your organization's local package policy.
+Do not replace it with a public registry to bypass that policy.
 
 ## 3. Sign in and create the resource group
 
@@ -139,15 +128,13 @@ az group create `
   --output table
 ```
 
-Use a resource group dedicated to the workshop. The deployment and validation
-scripts use its location for the apps, registry, and monitoring resources.
-Choose a region that supports Container Apps and check subscription quotas.
+Use a resource group dedicated to the workshop. The deployment uses its location
+for the Web App and monitoring resources.
 
-Register the resource providers if they are not already registered:
+Register the required resource providers:
 
 ```powershell
-az provider register --namespace Microsoft.App --wait
-az provider register --namespace Microsoft.ContainerRegistry --wait
+az provider register --namespace Microsoft.Web --wait
 az provider register --namespace Microsoft.OperationalInsights --wait
 az provider register --namespace Microsoft.Insights --wait
 ```
@@ -162,10 +149,12 @@ az provider register --namespace Microsoft.Insights --wait
 The script compiles [`infra/main.bicep`](../infra/main.bicep) and runs an Azure
 Resource Manager what-if without creating resources.
 
-The current Bicep CLI may warn that the documented GA Container Apps API
-`2026-07-01` has no local type definitions (`BCP081`). Compilation still
-succeeds; ARM what-if remains necessary to validate resource properties and
-regional availability.
+> [!WARNING]
+> If the resource group contains an older workshop deployment using the same
+> initials, the deployment stack replaces its Container Apps and registry with
+> App Service. The synthetic application has no persistent data, but this is a
+> platform migration and causes a maintenance window. Use a new resource group
+> or different initials if the older environment must remain available.
 
 ## 5. Deploy the application
 
@@ -183,47 +172,21 @@ Enter 2-5 letters when prompted. The script lowercases the initials and appends
   -Initials JRF
 ```
 
-The script:
+The script performs four visible stages:
 
-1. Creates or updates an isolated Azure deployment stack.
-2. Provisions ACR, the Container Apps environment, both apps, monitoring,
-   managed identities, and image-pull role assignments with Bicep.
-3. Builds the backend Linux/AMD64 image in ACR with an environment/timestamp tag.
-4. Updates the backend app to that image.
-5. Builds the locked frontend dependencies and nginx image in ACR.
-6. Updates the frontend app, whose runtime `BACKEND_URL` points at the API.
-7. Checks the backend health, proxied `/api/health`, and application root.
-
-The first infrastructure deployment uses a public bootstrap image so Azure can
-create system-assigned identities before private image pulls. The script then
-replaces it with application images. On reruns it preserves the existing image
-references during infrastructure updates. `-SkipCodeDeploy` provisions only
-infrastructure (or preserves existing code); a fresh environment using that
-switch is not a running Support Desk application.
-
-> [!WARNING]
-> Rerunning against an existing Static Web Apps deployment stack replaces the
-> old hosting resources. Review what-if first and allow a maintenance window;
-> remove any old `Support Desk SWA Deployer <environment>` role assignments
-> before updating the stack so Azure can delete the obsolete role definition.
-> The old deployment token and Functions package are not reused. After the
-> migration, rerun Part 2 with the Container Apps and registry names.
+1. Creates or updates the App Service deployment stack.
+2. Installs locked frontend dependencies and builds the React application.
+3. Packages the backend source, requirements, and frontend assets into one ZIP
+   and deploys it to the Web App.
+4. Verifies `/api/health` and the application root.
 
 Rerunning the command with the same initials updates the same environment.
+`-SkipCodeDeploy` provisions only infrastructure and does not deploy a working
+application package.
 
-If provisioning succeeds but code deployment fails, fix the reported problem
-and rerun the same command. To remove the environment instead:
-
-```powershell
-./infra/destroy.ps1 `
-  -ResourceGroup $RESOURCE_GROUP `
-  -EnvironmentName '<initials>01' `
-  -ConfirmEnvironment '<initials>01'
-```
-
-`destroy.ps1` removes the deployment role assignment before it deletes the
-stack, then deletes the workflow identity that Part 2 created. Run it from this
-part even if you completed Part 2.
+If infrastructure succeeds but application deployment fails, fix the reported
+build or deployment error and rerun the same command. Successful infrastructure
+is preserved.
 
 ## 6. Record and verify the deployment
 
@@ -234,31 +197,46 @@ Infrastructure ready; application deployment verified.
 Environment name:  <initials>01
 Deployment stack: azstk<initials>01
 Resource group:    <resource-group-name>
-Application URL:   https://<frontend-host>.azurecontainerapps.io
-Frontend App:     ca-web-<initials>01
-Backend App:      ca-api-<initials>01
-Container Registry: <registry-name>
+Application URL:   https://<web-app-name>.azurewebsites.net
+App Service plan:  <app-service-plan-name>
+Web App:           <web-app-name>
 ```
 
-Save the environment name, deployment stack, application URL, both app names,
-and registry name. Part 2 uses those names to configure GitHub.
+Save the environment name and Web App name. Part 2 uses them to configure
+automatic deployment.
 
 Open the application URL and confirm that the synthetic ticket queue and
-knowledge library work. Then verify the API:
+knowledge library work. Then verify Azure and the API:
 
 ```powershell
-Invoke-RestMethod -Uri '<application-url>/api/health'
+$WEB_APP = '<web-app-name>'
+$APPLICATION_URL = "https://$WEB_APP.azurewebsites.net"
 
-az containerapp show `
+Invoke-RestMethod -Uri "$APPLICATION_URL/api/health"
+
+az webapp show `
   --resource-group $RESOURCE_GROUP `
-  --name '<frontend-app-name>' `
-  --query '{name:name,host:properties.configuration.ingress.fqdn}' `
+  --name $WEB_APP `
+  --query '{name:name,state:state,host:defaultHostName,httpsOnly:httpsOnly}' `
   --output table
 ```
 
-The health response must be `{"status":"healthy"}`.
+The health response must be `{"status":"healthy"}`, the Web App state must be
+`Running`, and `httpsOnly` must be `true`.
+
+## Cleanup
+
+Remove only the generated workshop environment while preserving the resource
+group:
+
+```powershell
+./infra/destroy.ps1 `
+  -ResourceGroup $RESOURCE_GROUP `
+  -EnvironmentName '<initials>01' `
+  -ConfirmEnvironment '<initials>01'
+```
 
 ## Deployment complete
 
-The existing application is now deployed as two containerized services with
-same-origin browser routing. The AI feature is intentionally not present yet.
+The existing frontend and API now run as one code-based App Service application.
+The AI feature is intentionally not present yet.
