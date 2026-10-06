@@ -39,8 +39,11 @@ The Bicep deployment creates:
 2. `deploy.ps1` creates or updates the deployment stack.
 3. `dotnet publish` builds the complete UI and API.
 4. PowerShell creates one ZIP from the publish directory.
-5. Azure CLI deploys the compiled output to App Service.
-6. The script verifies `/api/health` and the rendered Blazor application.
+5. The deployment waits for the newly created SCM hostname and HTTPS endpoint
+   to become reachable.
+6. Azure CLI deploys the compiled output to App Service with bounded retries
+   for transient Kudu initialization failures.
+7. The script verifies `/api/health` and the rendered Blazor application.
 
 GitHub uses the same publish/package model. It authenticates with
 environment-scoped OIDC and receives the built-in `Website Contributor` role

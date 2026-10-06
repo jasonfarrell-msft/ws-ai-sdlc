@@ -181,11 +181,18 @@ The script performs four visible stages:
 
 1. Creates or updates the App Service deployment stack.
 2. Publishes the .NET 10 application in Release configuration.
-3. ZIP-deploys the published output to the Web App.
+3. Waits for the new App Service SCM/Kudu hostname to resolve and accept HTTPS,
+   then ZIP-deploys the published output to the Web App.
 4. Verifies `/api/health` and the rendered Blazor application.
 
 Rerunning the command with the same initials updates the same environment.
 `-SkipCodeDeploy` provisions only infrastructure.
+
+The first deployment can pause at stage 3 while Azure publishes the new SCM
+DNS record. The script retries that readiness check for up to five minutes
+before failing with the exact hostname, then retries transient Kudu deployment
+failures up to three times. It does not enable App Service build automation
+because `dotnet publish` has already produced a complete package.
 
 ## 7. Record and verify the deployment
 

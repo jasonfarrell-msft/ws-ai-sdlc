@@ -116,6 +116,56 @@ function Test-ApplicationEndpoint {
     }
 }
 
+function Wait-ScmEndpoint {
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $HostName,
+
+        [ValidateRange(30, 900)]
+        [int] $TimeoutSeconds = 300
+    )
+
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $attempt = 0
+    $lastError = 'The endpoint did not become reachable.'
+    while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+        $attempt++
+        try {
+            $dnsTask = [System.Net.Dns]::GetHostAddressesAsync($HostName)
+            if (-not $dnsTask.Wait([TimeSpan]::FromSeconds(5)) -or $dnsTask.Result.Count -eq 0) {
+                throw "DNS did not return an address for '$HostName'."
+            }
+
+            $tcpClient = [System.Net.Sockets.TcpClient]::new()
+            try {
+                $connectTask = $tcpClient.ConnectAsync($HostName, 443)
+                if (-not $connectTask.Wait([TimeSpan]::FromSeconds(5)) -or -not $tcpClient.Connected) {
+                    throw "HTTPS port 443 is not reachable for '$HostName'."
+                }
+            }
+            finally {
+                $tcpClient.Dispose()
+            }
+
+            Write-Host "App Service deployment endpoint '$HostName' is ready."
+            return
+        }
+        catch {
+            $lastError = $_.Exception.GetBaseException().Message
+            $remainingSeconds = $TimeoutSeconds - [int]$stopwatch.Elapsed.TotalSeconds
+            if ($remainingSeconds -le 0) {
+                throw "App Service deployment endpoint '$HostName' was not ready within $TimeoutSeconds seconds. $lastError"
+            }
+
+            Write-Host "Waiting for App Service deployment endpoint '$HostName' (attempt $attempt)."
+            Start-Sleep -Seconds ([Math]::Min(10, $remainingSeconds))
+        }
+    }
+
+    throw "App Service deployment endpoint '$HostName' was not ready within $TimeoutSeconds seconds. $lastError"
+}
+
 if (-not $SkipCodeDeploy) {
     $projectFile = Join-Path $script:ProjectRoot 'src/SupportDesk.App/SupportDesk.App.csproj'
     $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) "support-desk-$([guid]::NewGuid().ToString('N'))"
@@ -134,16 +184,32 @@ if (-not $SkipCodeDeploy) {
         Write-Host '3/4 Creating and deploying the application package.'
         Compress-Archive -Path (Join-Path $publishDirectory '*') -DestinationPath $packagePath
 
-        az webapp deploy `
-            --subscription $script:SubscriptionId `
-            --resource-group $ResourceGroup `
-            --name $webAppName `
-            --src-path $packagePath `
-            --type zip `
-            --clean true `
-            --restart true `
-            --track-status true `
-            --output none
+        $scmHostName = "$webAppName.scm.azurewebsites.net"
+        Wait-ScmEndpoint -HostName $scmHostName
+
+        for ($deploymentAttempt = 1; $deploymentAttempt -le 3; $deploymentAttempt++) {
+            try {
+                az webapp deploy `
+                    --subscription $script:SubscriptionId `
+                    --resource-group $ResourceGroup `
+                    --name $webAppName `
+                    --src-path $packagePath `
+                    --type zip `
+                    --clean true `
+                    --restart true `
+                    --track-status true `
+                    --output none
+                break
+            }
+            catch {
+                if ($deploymentAttempt -eq 3) {
+                    throw
+                }
+
+                Write-Warning "App Service deployment attempt $deploymentAttempt failed. Retrying in 15 seconds."
+                Start-Sleep -Seconds 15
+            }
+        }
 
         Write-Host '4/4 Verifying the deployed application.'
         Test-ApplicationEndpoint -Uri "$applicationUrl/api/health" -HealthEndpoint
