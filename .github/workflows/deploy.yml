@@ -73,14 +73,14 @@ jobs:
             fi
             sleep 1
           done
-          curl --fail --silent http://127.0.0.1:5050/ |
-            grep --fixed-strings --quiet "Support Desk"
-          curl \
+          response="$(curl --fail --silent http://127.0.0.1:5050/)"
+          grep --fixed-strings --quiet "Support Desk" <<< "$response"
+          response="$(curl \
             --fail \
             --silent \
             --request POST \
-            "http://127.0.0.1:5050/_blazor/negotiate?negotiateVersion=1" |
-            grep --fixed-strings --quiet '"connectionToken"'
+            "http://127.0.0.1:5050/_blazor/negotiate?negotiateVersion=1")"
+          grep --fixed-strings --quiet '"connectionToken"' <<< "$response"
 
       - name: Show application logs on failure
         if: failure()
@@ -200,19 +200,19 @@ jobs:
             --retry-delay 10 \
             "${application_url}/api/health")"
           grep --fixed-strings --quiet '"status":"healthy"' <<< "$response"
-          curl \
+          response="$(curl \
             --fail \
             --silent \
             --show-error \
             --retry 6 \
             --retry-all-errors \
             --retry-delay 5 \
-            "$application_url" |
-            grep --fixed-strings --quiet "Support Desk"
-          curl \
+            "$application_url")"
+          grep --fixed-strings --quiet "Support Desk" <<< "$response"
+          response="$(curl \
             --fail \
             --silent \
             --show-error \
             --request POST \
-            "${application_url}/_blazor/negotiate?negotiateVersion=1" |
-            grep --fixed-strings --quiet '"connectionToken"'
+            "${application_url}/_blazor/negotiate?negotiateVersion=1")"
+          grep --fixed-strings --quiet '"connectionToken"' <<< "$response"
