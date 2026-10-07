@@ -238,6 +238,7 @@ Create a task that records completion of this setup:
 
 ```powershell
 $WORK_ITEM_ID = az boards work-item create `
+  --detect false `
   --type Task `
   --title 'Connect Azure Boards to the workshop repository' `
   --description "Connected to $GITHUB_REPOSITORY" `
@@ -246,13 +247,19 @@ $WORK_ITEM_ID = az boards work-item create `
 
 az boards work-item show `
   --id $WORK_ITEM_ID `
+  --detect false `
+  --expand none `
   --fields System.Id,System.Title,System.State `
   --output table
 ```
 
 The command must return the new work item without requiring another sign-in.
 This verifies the identity, organization default, project default, and Boards
-permissions that local tools will use.
+permissions that local tools will use. `--detect false` tells the Azure DevOps
+extension to use the configured organization default instead of looking for an
+Azure Repos remote in this GitHub repository. `--expand none` is required when
+requesting a specific field list because the command otherwise defaults to
+`--expand all`.
 
 ## Azure Boards setup complete
 

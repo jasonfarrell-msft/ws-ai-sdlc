@@ -470,6 +470,8 @@ $WORK_ITEM_IDS = @(<epic-id>, <feature-id>, <story-id>)
 foreach ($id in $WORK_ITEM_IDS) {
   az boards work-item show `
     --id $id `
+    --detect false `
+    --expand none `
     --fields System.Id,System.WorkItemType,System.Title,System.Parent,System.State `
     --output table
 }

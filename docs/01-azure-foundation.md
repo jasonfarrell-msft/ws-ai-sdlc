@@ -226,15 +226,6 @@ az webapp show `
 The health response must be `{"status":"healthy"}`, the state must be `Running`,
 and `httpsOnly` must be `true`.
 
-## Cleanup
-
-```powershell
-./infra/destroy.ps1 `
-  -ResourceGroup $RESOURCE_GROUP `
-  -EnvironmentName '<initials>01' `
-  -ConfirmEnvironment '<initials>01'
-```
-
 ## Deployment complete
 
 The Blazor frontend and ASP.NET Core backend now run as one .NET App Service
