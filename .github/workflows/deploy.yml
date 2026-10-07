@@ -37,11 +37,11 @@ jobs:
 
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          dotnet-version: "10.0.x"
 
       - name: Restore locked dependencies
-        run: dotnet restore SupportDesk.slnx --locked-mode
+        run: |
+          dotnet --version
+          dotnet restore SupportDesk.slnx --locked-mode
 
       - name: Verify formatting
         run: dotnet format SupportDesk.slnx --verify-no-changes --no-restore
@@ -152,11 +152,10 @@ jobs:
 
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          dotnet-version: "10.0.x"
 
       - name: Publish deployment package
         run: |
+          dotnet --version
           dotnet restore src/SupportDesk.App/SupportDesk.App.csproj --locked-mode
           dotnet publish \
             src/SupportDesk.App/SupportDesk.App.csproj \

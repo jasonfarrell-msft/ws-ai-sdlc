@@ -117,7 +117,8 @@ gh run list `
 
 The workflow:
 
-1. Installs the .NET 10 SDK.
+1. Installs and selects the exact .NET 10.0.300 SDK declared by
+   [`global.json`](../global.json).
 2. Restores the committed NuGet lock files in locked mode.
 3. Verifies C# and Razor formatting.
 4. Builds and runs the MSTest suite.
@@ -128,6 +129,22 @@ The workflow:
 9. Verifies the health endpoint and rendered application.
 
 No workflow step contacts npm or a public npm registry.
+
+The SDK version is part of the locked dependency graph. ASP.NET Core Web SDK
+projects receive an implicit `Microsoft.AspNetCore.App.Internal.Assets`
+reference from the installed targeting pack, so allowing the SDK to roll
+forward can make locked restore fail even when no project package reference
+changed. In both validation and deployment jobs, `setup-dotnet` reads the exact
+version from the root `global.json`, and the workflow logs `dotnet --version`
+before restore. Regenerate lock files only when intentionally changing the SDK,
+and use that selected SDK for the regeneration.
+
+If you created your fork before this parent-repository fix, sync the parent
+repository's latest `main` into your fork before running the workflow again.
+At minimum, copy the updated `global.json` and
+`.github/workflows/deploy.yml` into your fork together; changing only one leaves
+SDK installation and selection inconsistent. Keep the committed lock files
+unchanged for SDK 10.0.300.
 
 Azure role assignments can take several minutes to propagate. If the first run
 fails with authorization denied, wait two minutes and rerun it:
