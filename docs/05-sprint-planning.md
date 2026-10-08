@@ -1,4 +1,4 @@
-# Part 5: Sprint Planning and Coding Agent Handoff
+# Part 5: Sprint Planning
 
 ## Goal
 
@@ -9,24 +9,23 @@ You use the Azure Boards specialist to select the smallest workshop set of User
 Stories that can produce a usable Increment. For this exercise, that means two
 User Stories, or three only when the third is necessary for a usable demo.
 You then create a limited number of Tasks, place the selected work in one
-Sprint, and create matching GitHub issues for the implementation work that the
-GitHub Copilot coding agent can perform. GitHub shows this agent as **Copilot**
-in the issue assignee list.
+Sprint, and verify that the resulting Sprint Backlog is ready for
+implementation.
 
 By the end of this part, you will have:
 
 - Two or three selected User Stories from the core Feature
+- One of those User Stories covers the required Azure AI Foundry enablement
 - One implementation Task for each selected User Story
 - No more than three new Tasks in total
-- One GitHub issue for each implementation Task
-- The first unblocked GitHub issue assigned to Copilot
-- Verified traceability between the Feature, selected User Stories, Tasks, and
-  GitHub issues
-- A documented review and handoff sequence for Copilot pull requests
+- Verified parent-child relationships and Sprint assignments in Azure Boards
+- A reviewed execution order for the implementation Tasks
 
 This exercise plans only one Sprint for the core Feature. It does not plan the
 optional **Conversational Queue Insights** Feature, decompose every backlog
-item, or create speculative Tasks for future Sprints.
+item, create implementation work outside Azure Boards, assign work to a coding
+agent, or create speculative Tasks for future Sprints. Assignment and
+implementation begin in the forthcoming Part 6.
 
 ## Prerequisites
 
@@ -37,26 +36,6 @@ Before continuing:
   Stories exist in Azure Boards.
 - Confirm that `az devops configure --list` shows the intended Azure DevOps
   organization and project.
-- Confirm that the Azure Boards GitHub App remains connected only to your fork.
-- Confirm that GitHub CLI is authenticated to your fork:
-
-```powershell
-gh auth status
-gh repo set-default origin
-gh repo set-default --view
-gh repo view --json nameWithOwner,isFork
-```
-
-- Confirm that your GitHub account and repository can use the GitHub Copilot
-  coding agent. If the coding agent is unavailable, you can still create and review
-  the Sprint Backlog, but stop before assigning the GitHub issues.
-
-> [!IMPORTANT]
-> An Azure Boards Task and a GitHub issue are different records. Azure Boards
-> holds the Sprint plan and hierarchy. GitHub holds the implementation request
-> assigned to the coding agent. Do not try to assign an Azure Boards Task to a
-> GitHub bot identity. This workshop uses GitHub issues for the handoff so the
-> request and resulting pull request remain reviewable in the repository.
 
 ## 1. Set the Sprint planning boundaries
 
@@ -65,22 +44,14 @@ Before asking an agent to create work items, agree on a small planning budget:
 | Decision | Workshop value |
 | --- | --- |
 | Feature | Constrained Ticket Status Q&A |
-| Selected User Stories | Two or three |
+| Selected User Stories | Two or three, including one Foundry enablement Story |
 | Tasks per selected User Story | One |
 | Maximum new Tasks | Three |
-| GitHub issues per Task | One |
-| Concurrent coding-agent assignments | One |
 
 The one-Task-per-Story rule is deliberate. Each Task should include the code,
 automated tests, and directly related documentation needed to satisfy its
 parent User Story. Do not create separate Tasks for routine coding, unit tests,
-formatting, documentation, pull request creation, or code review.
-
-Create another Task only when the work:
-
-- Has a different owner from the implementation work
-- Can be completed and verified independently
-- Is required for the User Story to meet its acceptance criteria
+formatting, or documentation.
 
 If a selected User Story cannot be described as one cohesive implementation
 Task, return it to Product Backlog refinement instead of creating a large
@@ -89,7 +60,7 @@ collection of Tasks.
 > [!NOTE]
 > Scrum does not require Tasks or prescribe how many belong to a User Story.
 > These limits are workshop guardrails that keep the Sprint Backlog
-> understandable and reduce overlapping coding-agent pull requests.
+> understandable and avoid speculative decomposition.
 
 ## 2. Define the Sprint
 
@@ -116,11 +87,11 @@ Only a team or project administrator can change team iteration settings. If
 you cannot create or select the Sprint, ask an administrator to complete these
 steps before continuing.
 
-Select only the User Stories needed to demonstrate read-only questions about
-one synthetic ticket with a grounded answer or clear fallback. Leave all other
-stories in the Product Backlog.
+## 3. Draft the Sprint Backlog
 
-## 3. Draft the Sprint Backlog and handoff
+Select only the work needed to enable and demonstrate read-only questions
+about one synthetic ticket with a grounded answer or clear fallback. Leave all
+other stories in the Product Backlog.
 
 Select `azure-boards-specialist` from the agent picker and submit the following
 prompt. Replace the Sprint placeholders before submitting it.
@@ -146,17 +117,21 @@ Use this approved scope:
 
 Discovery:
 First inspect the repository and Azure Boards. Find the existing Feature and
-all of its child User Stories. Search for existing Sprints, Tasks, and GitHub
-issues that already represent this work. Reuse or update matching records; do
-not create duplicates. Verify that the approved Sprint exists, has the supplied
-dates, and is selected for the intended team. Stop and report any mismatch
-instead of creating another Sprint.
+all of its child User Stories. Search for existing Sprints and Tasks that
+already represent this work. Reuse or update matching records; do not create
+duplicates. Verify that the approved Sprint exists, has the supplied dates,
+and is selected for the intended team. Stop and report any mismatch instead of
+creating another Sprint. Search for an existing Azure AI Foundry enablement
+User Story under the Feature. If none exists, propose one new enabling User
+Story and its acceptance criteria for explicit approval.
 
 Sprint Backlog boundaries:
 Propose the smallest coherent Sprint Backlog that can produce the approved
 demo outcome:
-- Select two User Stories, or three only when the third is necessary for a
-  usable Increment.
+- Create or reuse one Azure AI Foundry enablement User Story under the Feature.
+- Select one or two existing product-facing User Stories so the Sprint contains
+  two User Stories, or three only when the third is necessary for a usable
+  Increment.
 - Create exactly one cohesive implementation Task under each selected User
   Story.
 - Create no more than three new Tasks in total.
@@ -180,6 +155,25 @@ Each proposed Task must include:
 - Known dependencies and blockers
 - The repository areas likely to change, based on inspection
 
+> [!IMPORTANT]
+> The application has no existing AI integration. No earlier part of this
+> workshop provisions an Azure AI Foundry project or model deployment. Because
+> every selected User Story in this Feature depends on an AI-backed Q&A
+> answerer, the Sprint Backlog must create or reuse a dedicated enabling User
+> Story under this Feature for standing up Azure AI Foundry (project and model
+> deployment) via Bicep, with its own implementation Task, in addition to the
+> product-facing User Stories.
+> This enabling Story counts toward the "two or three selected User Stories"
+> budget and its Task counts toward the "three new Tasks" maximum — it is not
+> free-standing extra work. Tasks for the product-facing User Stories depend on
+> this Task and only call the resulting connection; they do not reconfigure it.
+> Every Task that provisions or calls Foundry must authenticate with Managed
+> Identity (system- or user-assigned) and least-privilege RBAC on the Foundry
+> resource. Do not use API keys or connection strings. If an agent proposes
+> Foundry setup only as a dependency or blocker rather than a selected,
+> in-scope User Story and Task, ask it to revise the Sprint Backlog before
+> approving it.
+
 Product and security constraints:
 Preserve these confirmed product constraints:
 - The capability is read-only and stateless.
@@ -193,57 +187,30 @@ Preserve these confirmed product constraints:
 - Production Azure access uses managed identity and least-privilege RBAC.
 - No secret, key, credential, or connection string is committed.
 
-GitHub handoff:
-For each proposed Azure Boards Task, also propose one matching GitHub issue for
-the repository reported by gh repo view. Each issue must:
-- Have a concise implementation-oriented title.
-- Include the parent User Story's acceptance criteria and the Task's completion
-  condition.
-- Include AB#<task-id> and AB#<story-id> traceability placeholders in the issue
-  description.
-- State the expected automated tests and documentation updates.
-- Tell the coding agent to inspect and follow repository instructions.
-- State that committed NuGet lock files must be regenerated with
-  dotnet restore --force-evaluate when package references change because CI
-  restores with --locked-mode.
-- Require a focused pull request and prohibit unrelated changes.
-- Require the pull request description to reference both Azure Boards IDs.
-- Avoid prescribing an implementation that repository inspection does not
-  support.
-
-Do not assign an Azure Boards Task to a GitHub bot identity. The GitHub issue,
-not the Azure Boards Task, is the record assigned to the coding agent.
-Plan to assign only the first unblocked GitHub issue. Leave dependent issues
-unassigned until the preceding pull request is reviewed and merged.
-
 Approval checkpoint:
 Before writing anything:
 1. Report the resolved Azure DevOps organization, project, process, identity,
-   GitHub repository, intended team, and configured Sprint iteration.
+   intended team, and configured Sprint iteration.
 2. Present the selected User Stories and the resulting demo outcome.
 3. Explain why each selected User Story is necessary and why each unselected
    User Story remains in the Product Backlog.
-4. Present the exact Task and GitHub issue drafts in parent-to-child order.
+4. Present the exact enabling User Story and Task drafts in parent-to-child
+   order, identifying any existing items that will be reused.
 5. List assumptions, open questions, dependencies, and the proposed execution
    order separately.
-6. State the exact create, update, link, Sprint assignment, and coding-agent
-   assignment operations.
+6. State the exact create, update, link, and Sprint assignment operations.
 7. Ask for explicit approval of those operations.
 
 Approved execution:
 After I approve:
 1. Reuse the configured Sprint iteration and verify its dates and intended
    team. Do not create another iteration.
-2. Create or update only the approved Tasks and parent-child links.
+2. Create or update only the approved enabling User Story, Tasks, and
+   parent-child links.
 3. Assign the selected User Stories and Tasks to the Sprint iteration.
-4. Create or update only the approved GitHub issues, substituting the actual
-   Azure Boards IDs into each issue description before creation.
-5. Use a supported GitHub Copilot coding-agent assignment operation to assign only the
-   first unblocked issue. Do not treat a normal user assignment as equivalent.
-6. Read every changed Azure Boards work item and GitHub issue back from its
-   source.
-7. Report the IDs, titles, types, states, parents, iteration paths, URLs,
-   assignees, dependencies, and verification results.
+4. Read every changed Azure Boards work item back from Azure Boards.
+5. Report the IDs, titles, types, states, parents, iteration paths, URLs,
+   dependencies, and verification results.
 
 Stop and report the exact failure if an item cannot be created, linked,
 assigned, or verified. Do not create a replacement or report success-shaped
@@ -266,6 +233,7 @@ Confirm that:
 - The Sprint iteration is selected for the intended team.
 - Only the selected **Constrained Ticket Status Q&A** User Stories are assigned
   to the Sprint.
+- The selected User Stories include the Azure AI Foundry enablement Story.
 - Each selected User Story has exactly one new implementation Task.
 - No more than three new Tasks were created.
 - Each Task has exactly one parent User Story.
@@ -301,91 +269,15 @@ Stories and their Tasks must report the Sprint iteration path.
 If a field or link is wrong, ask the specialist to correct only that item and
 verify it again. Do not create a replacement.
 
-## 5. Review the Coding Agent handoff
-
-List the created GitHub issues:
-
-```powershell
-gh issue list `
-  --state open `
-  --limit 20 `
-  --json number,title,assignees,url
-```
-
-Open each reported issue and confirm that it:
-
-- Represents one Azure Boards Task
-- References both its Task and parent User Story with `AB#<id>`
-- Contains the acceptance criteria, completion condition, constraints, and
-  expected test evidence
-- States that package-reference changes must regenerate the committed NuGet
-  lock files because CI uses locked restore
-- Is narrow enough for one focused pull request
-- Does not include secrets or real customer data
-- Does not duplicate another issue
-
-Only the first unblocked issue should be assigned to the GitHub Copilot coding
-agent.
-Keep later issues unassigned until their dependencies are satisfied. This
-reduces conflicting pull requests and gives the team a review checkpoint
-between changes.
-
-To assign the approved issue in GitHub, open the issue, select **Assignees**,
-and select **Copilot**. Then verify the assignee and URL:
-
-```powershell
-gh issue view <issue-number> `
-  --json number,title,assignees,url
-```
-
-Confirm that GitHub starts a coding-agent session or opens its draft pull
-request. Check the issue timeline for the Copilot assignment and the linked
-draft pull request. Assigning a human teammate is not equivalent to assigning
-Copilot.
-
-When the coding agent opens a pull request:
-
-1. Confirm that the pull request references the GitHub issue, Azure Boards
-   Task, and parent User Story.
-2. Review the proposed changes before allowing workflows to run. If GitHub
-   displays **Approve and run workflows**, select it only after confirming that
-   the changes are safe. Repository administrators can configure whether this
-   approval is required for Copilot.
-3. Review the code, tests, documentation, security boundaries, and completed
-   workflow results.
-4. Confirm that changes to `.github/workflows/`, `infra/`, `global.json`, or
-   `Directory.Build.props` are required by the approved Task; reject unrelated
-   changes to those files.
-5. Request corrections in the same pull request when needed.
-6. Merge only after the Task's completion condition and the User Story's
-   acceptance criteria are satisfied.
-7. Update the Task and User Story states in Azure Boards, then verify their
-   links and states.
-8. Assign the next unblocked GitHub issue to Copilot.
-
-> [!WARNING]
-> Merging to `main` triggers the deployment workflow configured in Part 2.
-> Treat the merge as a deployment decision, not only a source-control action.
-> Review Azure-impacting changes and expected cost before merging.
-
-Do not assign every issue at once merely because the coding agent is available.
-The Sprint Backlog is a plan owned by the Developers, and it should be adapted
-as implementation and review evidence becomes available.
-
 ### Sprint Backlog ready
 
 The Sprint now has a clear scope, a small set of selected User Stories, and a
-bounded implementation plan. Each coding-agent issue maps to one Azure Boards
-Task, and only the next unblocked issue is assigned. The team can now execute,
-review, and adapt the Sprint without creating a large speculative task list.
+bounded implementation plan in Azure Boards. No implementation work has been
+created or assigned outside Azure Boards. The forthcoming Part 6 begins
+assigning the Tasks for implementation.
 
 ## Public documentation used for validation
 
 - [The Scrum Guide](https://scrumguides.org/scrum-guide.html)
 - [Sprint and scrum best practices in Azure Boards](https://learn.microsoft.com/azure/devops/boards/sprints/best-practices-scrum)
 - [Organize your backlog and map child work items](https://learn.microsoft.com/azure/devops/boards/backlogs/organize-backlog)
-- [Link GitHub objects to Azure Boards work items](https://learn.microsoft.com/azure/devops/boards/github/link-to-from-github)
-- [Start GitHub Copilot cloud agent sessions](https://docs.github.com/copilot/how-tos/use-copilot-agents/cloud-agent/start-copilot-sessions)
-- [Configure GitHub Copilot cloud agent settings](https://docs.github.com/copilot/how-tos/use-copilot-agents/cloud-agent/configuring-agent-settings)
-- [`gh repo set-default`](https://cli.github.com/manual/gh_repo_set-default)
-- [`dotnet restore`](https://learn.microsoft.com/dotnet/core/tools/dotnet-restore)
