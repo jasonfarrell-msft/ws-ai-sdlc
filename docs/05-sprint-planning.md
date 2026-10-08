@@ -95,14 +95,32 @@ collection of Tasks.
 ## 2. Define the Sprint
 
 Choose the Sprint name and dates with the Scrum Team. Use an existing Sprint
-iteration when one already represents the agreed timebox. Otherwise, plan to
-create one.
+iteration when one already represents the agreed timebox. Otherwise, create
+one before drafting the Sprint Backlog.
 
-Record the approved Sprint name, start date, and finish date. The documented
-Azure Boards Sprint-planning flow does not provide a dedicated Sprint Goal
-field. Choose a visible team-owned location for the goal, such as the project
-wiki or a pinned dashboard item, and record that location as well. You will
-replace the matching placeholders in the planning prompt.
+Configure the Sprint in Azure Boards:
+
+1. Open **Boards** > **Sprints** > **Backlog**, then select the intended team.
+2. If the team already has a suitable Sprint, select **Set dates**, enter the
+   approved start and finish dates, and save the iteration.
+3. If no suitable Sprint exists:
+   1. Open **Project settings** > **Project configuration** > **Iterations**.
+   2. Create a child iteration with the approved Sprint name, start date, and
+      finish date.
+   3. Open **Project settings** > **Boards** > **Team configuration** >
+      **Iterations**.
+   4. Select the intended team and add the new iteration to that team.
+4. Return to **Boards** > **Sprints** and confirm that the Sprint appears for
+   the intended team with the approved dates.
+
+Only a team or project administrator can change team iteration settings. If
+you cannot create or select the Sprint, ask an administrator to complete these
+steps before continuing.
+
+The documented Azure Boards Sprint-planning flow does not provide a dedicated
+Sprint Goal field. Choose a visible team-owned location for the goal, such as
+the project wiki or a pinned dashboard item, and record that location as well.
+You will replace the matching placeholders in the planning prompt.
 
 Write a Sprint Goal that describes the outcome rather than the work:
 
@@ -147,7 +165,9 @@ Discovery:
 First inspect the repository and Azure Boards. Find the existing Feature and
 all of its child User Stories. Search for existing Sprints, Tasks, and GitHub
 issues that already represent this work. Reuse or update matching records; do
-not create duplicates.
+not create duplicates. Verify that the approved Sprint exists, has the supplied
+dates, and is selected for the intended team. Stop and report any mismatch
+instead of creating another Sprint.
 
 Sprint Backlog boundaries:
 Propose the smallest coherent Sprint Backlog that can meet the Sprint Goal:
@@ -215,7 +235,7 @@ unassigned until the preceding pull request is reviewed and merged.
 Approval checkpoint:
 Before writing anything:
 1. Report the resolved Azure DevOps organization, project, process, identity,
-   GitHub repository, and existing Sprint or iteration.
+   GitHub repository, intended team, and configured Sprint iteration.
 2. Present the proposed Sprint Goal and selected User Stories.
 3. Explain why each selected User Story is necessary and why each unselected
    User Story remains in the Product Backlog.
@@ -228,8 +248,8 @@ Before writing anything:
 
 Approved execution:
 After I approve:
-1. Create or reuse the Sprint iteration, select it for the project's intended
-   team, and report the team name.
+1. Reuse the configured Sprint iteration and verify its dates and intended
+   team. Do not create another iteration.
 2. Create or update only the approved Tasks and parent-child links.
 3. Assign the selected User Stories and Tasks to the Sprint iteration.
 4. Create or update only the approved GitHub issues, substituting the actual
