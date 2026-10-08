@@ -7,7 +7,7 @@ into a small, ready-to-execute Sprint Backlog.
 
 You use the Azure Boards specialist to select the smallest workshop set of User
 Stories that can produce a usable Increment. For this exercise, that means two
-User Stories, or three only when the third is necessary for the Sprint Goal.
+User Stories, or three only when the third is necessary for a usable demo.
 You then create a limited number of Tasks, place the selected work in one
 Sprint, and create matching GitHub issues for the implementation work that the
 GitHub Copilot coding agent can perform. GitHub shows this agent as **Copilot**
@@ -15,7 +15,6 @@ in the issue assignee list.
 
 By the end of this part, you will have:
 
-- One Sprint Goal
 - Two or three selected User Stories from the core Feature
 - One implementation Task for each selected User Story
 - No more than three new Tasks in total
@@ -117,21 +116,9 @@ Only a team or project administrator can change team iteration settings. If
 you cannot create or select the Sprint, ask an administrator to complete these
 steps before continuing.
 
-The documented Azure Boards Sprint-planning flow does not provide a dedicated
-Sprint Goal field. Choose a visible team-owned location for the goal, such as
-the project wiki or a pinned dashboard item, and record that location as well.
-You will replace the matching placeholders in the planning prompt.
-
-Write a Sprint Goal that describes the outcome rather than the work:
-
-```text
-Enable support users to ask a documented set of read-only questions about one
-synthetic ticket and receive a grounded answer or a clear fallback.
-```
-
-The Sprint Goal does not require every User Story under the Feature. Select only
-the stories needed to demonstrate that outcome. Leave all other stories in the
-Product Backlog.
+Select only the User Stories needed to demonstrate read-only questions about
+one synthetic ticket with a grounded answer or clear fallback. Leave all other
+stories in the Product Backlog.
 
 ## 3. Draft the Sprint Backlog and handoff
 
@@ -156,10 +143,6 @@ Use this approved scope:
 - Sprint name: <sprint-name>
 - Sprint start: <yyyy-MM-dd>
 - Sprint finish: <yyyy-MM-dd>
-- Sprint Goal location: <project-wiki-page-or-dashboard-location>
-- Sprint Goal: Enable support users to ask a documented set of read-only
-  questions about one synthetic ticket and receive a grounded answer or a
-  clear fallback.
 
 Discovery:
 First inspect the repository and Azure Boards. Find the existing Feature and
@@ -170,7 +153,8 @@ dates, and is selected for the intended team. Stop and report any mismatch
 instead of creating another Sprint.
 
 Sprint Backlog boundaries:
-Propose the smallest coherent Sprint Backlog that can meet the Sprint Goal:
+Propose the smallest coherent Sprint Backlog that can produce the approved
+demo outcome:
 - Select two User Stories, or three only when the third is necessary for a
   usable Increment.
 - Create exactly one cohesive implementation Task under each selected User
@@ -236,7 +220,7 @@ Approval checkpoint:
 Before writing anything:
 1. Report the resolved Azure DevOps organization, project, process, identity,
    GitHub repository, intended team, and configured Sprint iteration.
-2. Present the proposed Sprint Goal and selected User Stories.
+2. Present the selected User Stories and the resulting demo outcome.
 3. Explain why each selected User Story is necessary and why each unselected
    User Story remains in the Product Backlog.
 4. Present the exact Task and GitHub issue drafts in parent-to-child order.
@@ -275,14 +259,10 @@ the reported assumptions and open questions.
 
 After the approved changes are complete, review the Sprint in Azure Boards.
 Open **Boards** > **Sprints**, select the Sprint, and review its backlog.
-Confirm that the approved Sprint Goal is recorded in the team-owned location
-selected in Section 2. Keep that location visible to the team during the
-Sprint.
 
 Confirm that:
 
 - The Sprint has the agreed name and dates.
-- The agreed Sprint Goal is present in the selected team-owned location.
 - The Sprint iteration is selected for the intended team.
 - Only the selected **Constrained Ticket Status Q&A** User Stories are assigned
   to the Sprint.
@@ -394,7 +374,7 @@ as implementation and review evidence becomes available.
 
 ### Sprint Backlog ready
 
-The Sprint now has a clear goal, a small set of selected User Stories, and a
+The Sprint now has a clear scope, a small set of selected User Stories, and a
 bounded implementation plan. Each coding-agent issue maps to one Azure Boards
 Task, and only the next unblocked issue is assigned. The team can now execute,
 review, and adapt the Sprint without creating a large speculative task list.
