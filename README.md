@@ -165,8 +165,13 @@ the Web App. It restores from committed NuGet lock files, builds, tests,
 publishes, ZIP-deploys, and verifies the same .NET application. No publishing
 profile, client secret, JavaScript package, or npm registry is used.
 
-See [Part 1](docs/01-azure-foundation.md) and
-[Part 2](docs/02-github-action-setup.md) for the complete workshop setup.
+Follow the workshop in order:
+
+1. [Part 1: Azure foundation](docs/01-azure-foundation.md)
+2. [Part 2: Automatic deployment](docs/02-github-action-setup.md)
+3. [Part 3: Azure Boards and GitHub](docs/03-azure-devops-setup.md)
+4. [Part 4: Backlog planning](docs/04-backlog-planning.md)
+5. [Part 5: Sprint planning and Coding Agent handoff](docs/05-sprint-planning.md)
 
 ## Security boundaries
 

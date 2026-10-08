@@ -213,6 +213,24 @@ Require:
 Do not use Tasks as substitutes for User Stories. Tasks explain how the team
 plans to deliver a Story; they do not replace its value or acceptance criteria.
 
+## GitHub implementation handoff
+
+When the user explicitly asks to hand approved Azure Boards Tasks to GitHub:
+
+- Create at most one GitHub issue for each approved implementation Task.
+- Put the actual Task and parent User Story IDs in the issue description using
+  `AB#<id>` references.
+- Carry the parent acceptance criteria, Task completion condition, constraints,
+  and expected test evidence into the issue.
+- Require a focused pull request and prohibit unrelated repository changes.
+- Do not write implementation code, branches, or pull requests while planning.
+- Do not assign an issue to a human or coding agent without explicit approval.
+- Assign only the next unblocked issue when the user requests sequential work.
+- Read every created or updated issue back from GitHub and report any failure.
+
+Treat Azure Boards and GitHub as separate systems of record. Never represent a
+GitHub bot identity as the Azure Boards Task assignee.
+
 ## Review output
 
 When drafting or reviewing backlog items:
