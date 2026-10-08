@@ -24,8 +24,8 @@ By the end of this part, you will have:
 This exercise plans only one Sprint for the core Feature. It does not plan the
 optional **Conversational Queue Insights** Feature, decompose every backlog
 item, create implementation work outside Azure Boards, assign work to a coding
-agent, or create speculative Tasks for future Sprints. Assignment and
-implementation begin in the forthcoming Part 6.
+agent, or create speculative Tasks for future Sprints. Preparation for coding
+agent assignment continues in Part 6.
 
 ## Prerequisites
 
@@ -273,8 +273,9 @@ verify it again. Do not create a replacement.
 
 The Sprint now has a clear scope, a small set of selected User Stories, and a
 bounded implementation plan in Azure Boards. No implementation work has been
-created or assigned outside Azure Boards. The forthcoming Part 6 begins
-assigning the Tasks for implementation.
+created or assigned outside Azure Boards. Continue to
+[Part 6](06-coding-agent-delivery.md) to prepare the first Tasks for coding
+agent assignment.
 
 ## Public documentation used for validation
 

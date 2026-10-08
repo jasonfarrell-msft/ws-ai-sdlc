@@ -64,7 +64,7 @@ src/SupportDesk.App/
 tests/SupportDesk.App.Tests/
                   MSTest unit and hosted integration tests
 infra/            Bicep and PowerShell deployment scripts
-docs/             Workshop setup, backlog-planning, and sprint-planning guides
+docs/             Workshop setup, planning, and coding-agent delivery guides
 SupportDesk.slnx  .NET solution
 ```
 
@@ -172,6 +172,7 @@ Follow the workshop in order:
 3. [Part 3: Azure Boards and GitHub](docs/03-azure-devops-setup.md)
 4. [Part 4: Backlog planning](docs/04-backlog-planning.md)
 5. [Part 5: Sprint planning](docs/05-sprint-planning.md)
+6. [Part 6: Coding Agent delivery](docs/06-coding-agent-delivery.md)
 
 ## Security boundaries
 
