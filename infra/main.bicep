@@ -138,8 +138,15 @@ resource foundryAccount 'Microsoft.CognitiveServices/accounts@2026-07-01' = {
 
 resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2026-07-01' = {
   parent: foundryAccount
+  // Serialize account-level writes to avoid Foundry operation conflicts.
+  dependsOn: [
+    foundryModelDeployment
+  ]
   name: foundryProjectName
   location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
   tags: commonTags
   properties: {
     description: 'Default Microsoft Foundry project for the Support Desk Simulator.'
