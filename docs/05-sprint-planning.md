@@ -8,17 +8,18 @@ into a small, ready-to-execute Sprint Backlog.
 You use the Azure Boards specialist to select the smallest workshop set of
 product-facing User Stories that can produce a usable Increment. For this
 exercise, that means two User Stories, or three only when the third is necessary
-for a usable demo. You then create a limited number of Tasks, place the selected
-work in one Sprint, and verify that the resulting Sprint Backlog is ready for
-implementation.
+for a usable demo. For each selected Story, you identify the distinct,
+independently implementable units of work that can be handed to a GitHub Copilot
+coding agent as separate Tasks. You then place the selected work in one Sprint
+and verify that the resulting Sprint Backlog is ready for implementation.
 
 By the end of this part, you will have:
 
 - Two or three selected User Stories from the core Feature
 - The pre-provisioned Microsoft Foundry project and model are treated as
   environment prerequisites, not Sprint scope
-- One implementation Task for each selected User Story
-- No more than three new Tasks in total
+- One or more implementation Tasks per selected User Story, as needed to
+  describe agent-sized units of work
 - Verified parent-child relationships and Sprint assignments in Azure Boards
 - A reviewed execution order for the implementation Tasks
 
@@ -46,22 +47,29 @@ Before asking an agent to create work items, agree on a small planning budget:
 | --- | --- |
 | Feature | Constrained Ticket Status Q&A |
 | Selected User Stories | Two or three product-facing Stories |
-| Tasks per selected User Story | One |
-| Maximum new Tasks | Three |
+| Tasks per selected User Story | As needed for independently implementable work units |
+| Maximum new Tasks | No fixed limit; create only the Tasks needed to hand off the work clearly |
 
-The one-Task-per-Story rule is deliberate. Each Task should include the code,
-automated tests, and directly related documentation needed to satisfy its
-parent User Story. Do not create separate Tasks for routine coding, unit tests,
-formatting, or documentation.
+Each Task must describe one bounded unit of work that can be assigned to a
+coding agent without combining unrelated implementation outcomes. Multiple
+Tasks may belong to one Story when its work naturally divides into separate
+agent-sized units. A Task may include the implementation, tests, and directly
+related documentation needed for its own completion; separate Tasks are also
+appropriate when those are independently implementable work units. Keep
+dependencies and execution order explicit, and avoid overlapping scopes or
+Tasks for routine substeps such as formatting.
 
-If a selected User Story cannot be described as one cohesive implementation
-Task, return it to Product Backlog refinement instead of creating a large
-collection of Tasks.
+Do not split work into arbitrary or overly small Tasks just to increase the
+count. If a Story cannot be divided into clear, independently implementable
+units without overlap or excessive coordination, keep its work in one cohesive
+Task or return the Story to Product Backlog refinement if its scope is too large
+for the Sprint.
 
 > [!NOTE]
 > Scrum does not require Tasks or prescribe how many belong to a User Story.
-> These limits are workshop guardrails that keep the Sprint Backlog
-> understandable and avoid speculative decomposition.
+> The limit on selected User Stories is a workshop guardrail. Task counts
+> should reflect the distinct, agent-ready work without speculative
+> decomposition.
 
 ## 2. Define the Sprint
 
@@ -132,11 +140,16 @@ Propose the smallest coherent Sprint Backlog that can produce the approved
 demo outcome:
 - Select two existing product-facing User Stories, or three only when the
   third is necessary for a usable Increment.
-- Create exactly one cohesive implementation Task under each selected User
-  Story.
-- Create no more than three new Tasks in total.
-- Include implementation, automated tests, and directly related documentation
-  in each Task rather than creating separate routine Tasks.
+- Create one or more implementation Tasks under each selected User Story,
+  dividing the work into separate units when they can be implemented
+  independently by a coding agent.
+- Create only the Tasks needed to define the selected Stories as clear,
+  agent-ready units; there is no fixed maximum number of Tasks.
+- Give each Task a distinct, bounded scope, a verifiable completion condition,
+  relevant automated test evidence, and explicit dependencies on other Tasks
+  where applicable.
+- Include directly related tests and documentation in the relevant Task when
+  they are part of that unit; do not add arbitrary routine Tasks.
 - Leave unselected User Stories in the Product Backlog.
 - Do not create a Foundry provisioning User Story or Task. The Microsoft
   Foundry resource, project, and model deployment already exist from Part 1.
@@ -145,18 +158,19 @@ demo outcome:
 - Do not add the optional Conversational Queue Insights Feature to this Sprint.
 - Do not invent estimates, capacity, a Definition of Done, organization policy,
   or acceptance criteria.
-- If a selected User Story is too large for one cohesive Task, identify it for
-  refinement and exclude it from the proposed Sprint.
+- If a selected User Story is too large for a set of independently
+  implementable Tasks to fit in the Sprint, identify it for refinement and
+  exclude it from the proposed Sprint.
 
 Task requirements:
 Each proposed Task must include:
 - An action-oriented title
 - Its parent User Story ID
-- A concise implementation scope
+- A concise, bounded implementation scope suitable for a coding-agent handoff
 - A completion condition tied to the parent's acceptance criteria
-- Required automated test evidence
+- Required automated test evidence for that unit of work
 - Relevant security, privacy, reliability, and accessibility constraints
-- Known dependencies and blockers
+- Known dependencies and blockers, including prerequisite Tasks
 - The repository areas likely to change, based on inspection
 
 > [!IMPORTANT]
@@ -190,6 +204,8 @@ Before writing anything:
    User Story remains in the Product Backlog.
 4. Present the exact selected product-facing User Stories and Task drafts in
    parent-to-child order, identifying any existing items that will be reused.
+   Explain why each Story has one Task or is divided into multiple distinct
+   coding-agent-sized Tasks.
 5. List assumptions, open questions, dependencies, and the proposed execution
    order separately.
 6. State the exact create, update, link, and Sprint assignment operations.
@@ -229,8 +245,9 @@ Confirm that:
   to the Sprint.
 - The selected User Stories are product-facing; no Foundry infrastructure
   provisioning Story or Task was created.
-- Each selected User Story has exactly one new implementation Task.
-- No more than three new Tasks were created.
+- Each selected User Story has the necessary implementation Tasks, with
+  distinct scopes that can be handed to a coding agent individually.
+- No Task scopes overlap or split work into arbitrary routine substeps.
 - Each Task has exactly one parent User Story.
 - Every Task has a concrete completion condition and test evidence.
 - Unselected stories and the optional Feature remain outside the Sprint.
@@ -242,9 +259,10 @@ paths independently:
 ```powershell
 $WORK_ITEM_IDS = @(
   <feature-id>,
-  <story-1-id>, <task-1-id>,
-  <story-2-id>, <task-2-id>
-  # Add <story-3-id>, <task-3-id> only when the third Story was selected.
+  <story-1-id>, <task-1-id>, <task-2-id>,
+  <story-2-id>, <task-3-id>
+  # Include every selected Story and each of its Tasks. A Story may have one
+  # or more Tasks; include Story 3 and its Tasks only when selected.
 )
 
 foreach ($id in $WORK_ITEM_IDS) {
@@ -259,17 +277,19 @@ foreach ($id in $WORK_ITEM_IDS) {
 
 Include the Feature, every selected User Story, and every new Task in
 `$WORK_ITEM_IDS`. The Feature can remain outside the Sprint; the selected User
-Stories and their Tasks must report the Sprint iteration path.
+Stories and all their Tasks must report the Sprint iteration path. Review each
+Task's parent, scope, and dependencies so the approved execution order is
+usable for individual coding-agent handoffs.
 
 If a field or link is wrong, ask the specialist to correct only that item and
 verify it again. Do not create a replacement.
 
 ### Sprint Backlog ready
 
-The Sprint now has a clear scope, a small set of selected User Stories, and a
-bounded implementation plan in Azure Boards. No implementation work has been
-created or assigned outside Azure Boards. Continue to
-[Part 6](06-coding-agent-delivery.md) to prepare the first Tasks for coding
+The Sprint now has a clear scope, a small set of selected User Stories, and
+distinct implementation Tasks that can be handed to coding agents individually.
+No implementation work has been created or assigned outside Azure Boards.
+Continue to [Part 6](06-coding-agent-delivery.md) to prepare Tasks for coding
 agent assignment.
 
 ## Public documentation used for validation
