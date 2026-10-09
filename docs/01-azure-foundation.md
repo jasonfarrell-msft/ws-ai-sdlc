@@ -12,6 +12,8 @@ The deployment creates:
 - One .NET 10 Web App with WebSockets enabled for Blazor Interactive Server
 - One published ASP.NET Core application containing the UI and API
 - Log Analytics and workspace-based Application Insights
+- One Microsoft Foundry resource with the `support-sim-project` project
+- One GPT-5.4-mini `GlobalStandard` model deployment
 
 There are no containers, registries, JavaScript packages, Node.js tools, npm
 manifests, or custom Azure roles.
@@ -29,6 +31,7 @@ manifests, or custom Azure roles.
 | State | Singleton .NET service | Thread-safe process-local synthetic data |
 | Hosting | Azure App Service | One Linux Web App on one Basic B1 plan |
 | Monitoring | Log Analytics and Application Insights | 30-day workspace retention |
+| AI foundation | Microsoft Foundry | `support-sim-project` and GPT-5.4-mini |
 | Deployment | `dotnet publish` and ZIP deployment | Microsoft Entra authentication |
 
 The UI and API run in one ASP.NET Core process. Blazor Interactive Server uses
@@ -143,6 +146,7 @@ Register the required resource providers:
 az provider register --namespace Microsoft.Web --wait
 az provider register --namespace Microsoft.OperationalInsights --wait
 az provider register --namespace Microsoft.Insights --wait
+az provider register --namespace Microsoft.CognitiveServices --wait
 ```
 
 ## 5. Validate the infrastructure
@@ -206,9 +210,26 @@ Resource group:    <resource-group-name>
 Application URL:   https://<web-app-name>.azurewebsites.net
 App Service plan:  <app-service-plan-name>
 Web App:           <web-app-name>
+Foundry resource:  <foundry-resource-name>
+Foundry project:   support-sim-project
+Model deployment:  gpt-5.4-mini
 ```
 
-Save the environment name and Web App name for Part 2.
+Save the environment name, Web App name, Foundry resource, project, and model
+deployment names. Parts 5 and 6 assume that the Microsoft Foundry resource,
+project, and model deployment already exist; they do not add infrastructure
+provisioning work to the Sprint.
+
+The Foundry account uses a system-assigned managed identity, and local key
+authentication is disabled on the account. GPT-5.4-mini model version
+`2026-03-17` is deployed as `GlobalStandard` with capacity 50 in the resource
+group's region (targeting 50,000 tokens per minute). Confirm that the model
+deployment is available and quota is approved for that region before
+deployment; ARM provisioning will fail if sufficient quota is unavailable.
+Model usage can incur charges.
+application does not call the model in this foundation deployment, so the Web
+App identity is not granted Foundry access yet. A later application Task must
+request only the runtime RBAC needed to call the model.
 
 ```powershell
 $WEB_APP = '<web-app-name>'
@@ -229,4 +250,15 @@ and `httpsOnly` must be `true`.
 ## Deployment complete
 
 The Blazor frontend and ASP.NET Core backend now run as one .NET App Service
-application. The AI feature is intentionally not present yet.
+application. The Microsoft Foundry resource, project, and GPT-5.4-mini model
+are provisioned for later use; the application does not integrate with or call
+the model yet.
+
+## Public documentation used for validation
+
+- [Deploy a Microsoft Foundry resource by using Bicep](https://learn.microsoft.com/azure/foundry/how-to/create-resource-template)
+- [Microsoft Foundry account Bicep reference](https://learn.microsoft.com/azure/templates/microsoft.cognitiveservices/2026-07-01/accounts)
+- [Microsoft Foundry project Bicep reference](https://learn.microsoft.com/azure/templates/microsoft.cognitiveservices/2026-07-01/accounts/projects)
+- [Microsoft Foundry model deployment Bicep reference](https://learn.microsoft.com/azure/templates/microsoft.cognitiveservices/2026-07-01/accounts/deployments)
+- [Foundry Models sold directly by Azure](https://learn.microsoft.com/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure)
+- [Region availability for Foundry Models sold by Azure](https://learn.microsoft.com/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure-region-availability)

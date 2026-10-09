@@ -5,17 +5,18 @@
 In this part, you turn the **Constrained Ticket Status Q&A** Feature from Part 4
 into a small, ready-to-execute Sprint Backlog.
 
-You use the Azure Boards specialist to select the smallest workshop set of User
-Stories that can produce a usable Increment. For this exercise, that means two
-User Stories, or three only when the third is necessary for a usable demo.
-You then create a limited number of Tasks, place the selected work in one
-Sprint, and verify that the resulting Sprint Backlog is ready for
+You use the Azure Boards specialist to select the smallest workshop set of
+product-facing User Stories that can produce a usable Increment. For this
+exercise, that means two User Stories, or three only when the third is necessary
+for a usable demo. You then create a limited number of Tasks, place the selected
+work in one Sprint, and verify that the resulting Sprint Backlog is ready for
 implementation.
 
 By the end of this part, you will have:
 
 - Two or three selected User Stories from the core Feature
-- One of those User Stories covers the required Azure AI Foundry enablement
+- The pre-provisioned Microsoft Foundry project and model are treated as
+  environment prerequisites, not Sprint scope
 - One implementation Task for each selected User Story
 - No more than three new Tasks in total
 - Verified parent-child relationships and Sprint assignments in Azure Boards
@@ -44,7 +45,7 @@ Before asking an agent to create work items, agree on a small planning budget:
 | Decision | Workshop value |
 | --- | --- |
 | Feature | Constrained Ticket Status Q&A |
-| Selected User Stories | Two or three, including one Foundry enablement Story |
+| Selected User Stories | Two or three product-facing Stories |
 | Tasks per selected User Story | One |
 | Maximum new Tasks | Three |
 
@@ -89,7 +90,7 @@ steps before continuing.
 
 ## 3. Draft the Sprint Backlog
 
-Select only the work needed to enable and demonstrate read-only questions
+Select only the product-facing work needed to demonstrate read-only questions
 about one synthetic ticket with a grounded answer or clear fallback. Leave all
 other stories in the Product Backlog.
 
@@ -121,23 +122,26 @@ all of its child User Stories. Search for existing Sprints and Tasks that
 already represent this work. Reuse or update matching records; do not create
 duplicates. Verify that the approved Sprint exists, has the supplied dates,
 and is selected for the intended team. Stop and report any mismatch instead of
-creating another Sprint. Search for an existing Azure AI Foundry enablement
-User Story under the Feature. If none exists, propose one new enabling User
-Story and its acceptance criteria for explicit approval.
+creating another Sprint. Use the successful Part 1 deployment output as
+confirmation that the Microsoft Foundry resource, support-sim-project project,
+and gpt-5.4-mini model deployment are provisioned. Treat them as environment
+prerequisites, not Sprint scope.
 
 Sprint Backlog boundaries:
 Propose the smallest coherent Sprint Backlog that can produce the approved
 demo outcome:
-- Create or reuse one Azure AI Foundry enablement User Story under the Feature.
-- Select one or two existing product-facing User Stories so the Sprint contains
-  two User Stories, or three only when the third is necessary for a usable
-  Increment.
+- Select two existing product-facing User Stories, or three only when the
+  third is necessary for a usable Increment.
 - Create exactly one cohesive implementation Task under each selected User
   Story.
 - Create no more than three new Tasks in total.
 - Include implementation, automated tests, and directly related documentation
   in each Task rather than creating separate routine Tasks.
 - Leave unselected User Stories in the Product Backlog.
+- Do not create a Foundry provisioning User Story or Task. The Microsoft
+  Foundry resource, project, and model deployment already exist from Part 1.
+  Product-facing Tasks may use them only where their parent Story requires it;
+  they must not provision or reconfigure these resources.
 - Do not add the optional Conversational Queue Insights Feature to this Sprint.
 - Do not invent estimates, capacity, a Definition of Done, organization policy,
   or acceptance criteria.
@@ -156,23 +160,13 @@ Each proposed Task must include:
 - The repository areas likely to change, based on inspection
 
 > [!IMPORTANT]
-> The application has no existing AI integration. No earlier part of this
-> workshop provisions an Azure AI Foundry project or model deployment. Because
-> every selected User Story in this Feature depends on an AI-backed Q&A
-> answerer, the Sprint Backlog must create or reuse a dedicated enabling User
-> Story under this Feature for standing up Azure AI Foundry (project and model
-> deployment) via Bicep, with its own implementation Task, in addition to the
-> product-facing User Stories.
-> This enabling Story counts toward the "two or three selected User Stories"
-> budget and its Task counts toward the "three new Tasks" maximum — it is not
-> free-standing extra work. Tasks for the product-facing User Stories depend on
-> this Task and only call the resulting connection; they do not reconfigure it.
-> Every Task that provisions or calls Foundry must authenticate with Managed
-> Identity (system- or user-assigned) and least-privilege RBAC on the Foundry
-> resource. Do not use API keys or connection strings. If an agent proposes
-> Foundry setup only as a dependency or blocker rather than a selected,
-> in-scope User Story and Task, ask it to revise the Sprint Backlog before
-> approving it.
+> Part 1 provisions the Microsoft Foundry resource, `support-sim-project`, and
+> the GPT-5.4-mini model deployment. The application does not yet call the
+> model. Do not create or select a Foundry infrastructure-enablement Story or
+> Task in this Sprint. If any foundation resource is missing, stop and report
+> the Part 1 deployment prerequisite instead of adding provisioning to the
+> Sprint. Any application Task that calls Foundry must use managed identity
+> and least-privilege RBAC; do not use API keys or connection strings.
 
 Product and security constraints:
 Preserve these confirmed product constraints:
@@ -194,8 +188,8 @@ Before writing anything:
 2. Present the selected User Stories and the resulting demo outcome.
 3. Explain why each selected User Story is necessary and why each unselected
    User Story remains in the Product Backlog.
-4. Present the exact enabling User Story and Task drafts in parent-to-child
-   order, identifying any existing items that will be reused.
+4. Present the exact selected product-facing User Stories and Task drafts in
+   parent-to-child order, identifying any existing items that will be reused.
 5. List assumptions, open questions, dependencies, and the proposed execution
    order separately.
 6. State the exact create, update, link, and Sprint assignment operations.
@@ -205,7 +199,7 @@ Approved execution:
 After I approve:
 1. Reuse the configured Sprint iteration and verify its dates and intended
    team. Do not create another iteration.
-2. Create or update only the approved enabling User Story, Tasks, and
+2. Create or update only the approved product-facing User Stories, Tasks, and
    parent-child links.
 3. Assign the selected User Stories and Tasks to the Sprint iteration.
 4. Read every changed Azure Boards work item back from Azure Boards.
@@ -233,7 +227,8 @@ Confirm that:
 - The Sprint iteration is selected for the intended team.
 - Only the selected **Constrained Ticket Status Q&A** User Stories are assigned
   to the Sprint.
-- The selected User Stories include the Azure AI Foundry enablement Story.
+- The selected User Stories are product-facing; no Foundry infrastructure
+  provisioning Story or Task was created.
 - Each selected User Story has exactly one new implementation Task.
 - No more than three new Tasks were created.
 - Each Task has exactly one parent User Story.

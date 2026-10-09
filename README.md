@@ -26,9 +26,10 @@ published by the .NET SDK and is not downloaded from npm.
 - Health checks, structured API errors, request limits, role authorization, and
   security response headers
 
-The baseline intentionally has **no AI functionality**. The workshop files
-under [docs/](docs/) guide participants through planning the AI Grounded
-Response Assistant.
+The application intentionally has **no AI integration**. Part 1 provisions a
+Microsoft Foundry resource, the `support-sim-project` project, and a GPT-5.4-mini
+model deployment for later use. The workshop files under [docs/](docs/) guide
+participants through planning the AI Grounded Response Assistant.
 
 ## Architecture
 
@@ -42,6 +43,9 @@ Azure App Service
        ├── Blazor components
        ├── Minimal API endpoints under /api
        └── Singleton synthetic support store
+Microsoft Foundry (pre-provisioned; not yet called by the application)
+   ├── support-sim-project
+   └── gpt-5.4-mini deployment
 ```
 
 One code-based Linux Web App hosts the frontend and backend. There is no

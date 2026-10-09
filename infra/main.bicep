@@ -1,6 +1,6 @@
 targetScope = 'resourceGroup'
 
-@description('Azure region for the App Service and monitoring resources.')
+@description('Azure region for the App Service, monitoring, and Microsoft Foundry resources.')
 param location string = resourceGroup().location
 
 @minLength(4)
@@ -38,6 +38,9 @@ var logAnalyticsName = 'azlaw${resourceToken}'
 var applicationInsightsName = 'azai${resourceToken}'
 var appServicePlanName = 'asp-${resourceToken}'
 var webAppName = 'app-${resourceToken}'
+var foundryAccountName = 'aif${resourceToken}'
+var foundryProjectName = 'support-sim-project'
+var foundryModelDeploymentName = 'gpt-5.4-mini'
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2026-03-01' = {
   name: logAnalyticsName
@@ -114,7 +117,57 @@ resource webApp 'Microsoft.Web/sites@2026-08-01' = {
   }
 }
 
+resource foundryAccount 'Microsoft.CognitiveServices/accounts@2026-07-01' = {
+  name: foundryAccountName
+  location: location
+  kind: 'AIServices'
+  sku: {
+    name: 'S0'
+  }
+  identity: {
+    type: 'SystemAssigned'
+  }
+  tags: commonTags
+  properties: {
+    allowProjectManagement: true
+    customSubDomainName: foundryAccountName
+    disableLocalAuth: true
+    publicNetworkAccess: 'Enabled'
+  }
+}
+
+resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2026-07-01' = {
+  parent: foundryAccount
+  name: foundryProjectName
+  location: location
+  tags: commonTags
+  properties: {
+    description: 'Default Microsoft Foundry project for the Support Desk Simulator.'
+    displayName: foundryProjectName
+  }
+}
+
+resource foundryModelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2026-07-01' = {
+  parent: foundryAccount
+  name: foundryModelDeploymentName
+  sku: {
+    name: 'GlobalStandard'
+    capacity: 50
+  }
+  tags: commonTags
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: 'gpt-5.4-mini'
+      version: '2026-03-17'
+    }
+  }
+}
+
 output environmentName string = environmentName
 output appServicePlanName string = appServicePlan.name
 output webAppName string = webApp.name
 output applicationUrl string = 'https://${webApp.properties.defaultHostName}'
+output foundryResourceName string = foundryAccount.name
+output foundryProjectName string = foundryProject.name
+output foundryModelDeploymentName string = foundryModelDeployment.name
