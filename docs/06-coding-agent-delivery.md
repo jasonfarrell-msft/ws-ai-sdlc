@@ -17,8 +17,8 @@ Before continuing:
 
 - Complete Part 5 and retain the IDs of the selected User Stories and all
   associated Tasks.
-- Confirm every selected Task has its expected User Story as its parent and is
-  in the approved Sprint.
+- Confirm every selected Task has its expected User Story as its parent.
+- No Sprint setup is required for this handoff.
 - Confirm the Part 1 deployment output identifies the Foundry resource,
   `support-sim-project`, and `gpt-5.4-mini`.
 - Confirm that `az devops configure --list` shows the intended Azure DevOps
@@ -67,7 +67,6 @@ foreach ($pair in $IMPLEMENTATION_PAIRS) {
 Confirm that:
 
 - The Task belongs to the intended product-facing User Story.
-- The Story and Task are in the approved Sprint.
 - The Task has not already been completed or assigned to an agent.
 - The task scope does not provision or reconfigure Microsoft Foundry.
 
@@ -131,8 +130,8 @@ Before writing anything:
 After I approve:
 1. Update only the approved Task instructions.
 2. Read every selected Story and Task back from Azure Boards.
-3. Report each item's ID, title, state, iteration path, parent ID, URL, and
-   verification result.
+3. Report each item's ID, title, state, parent ID, URL, and verification
+   result.
 
 Stop and report the exact failure if an item cannot be updated or verified.
 Do not create a replacement or report success-shaped fallback output. Do not
@@ -160,15 +159,14 @@ foreach ($id in $WORK_ITEM_IDS) {
     --id $id `
     --detect false `
     --expand none `
-    --fields System.Id,System.WorkItemType,System.Title,System.Parent,System.State,System.IterationPath,System.AssignedTo `
+    --fields System.Id,System.WorkItemType,System.Title,System.Parent,System.State,System.AssignedTo `
     --output table
 }
 ```
 
 Confirm that:
 
-- Every Task still has its expected User Story as its parent and remains in
-  the approved Sprint.
+- Every Task still has its expected User Story as its parent.
 - Every Task contains its approved coding-agent instructions and retains its
   distinct, bounded scope.
 - No Foundry infrastructure or overlapping deployment workflow was added to

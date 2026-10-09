@@ -175,7 +175,7 @@ Follow the workshop in order:
 2. [Part 2: Automatic deployment](docs/02-github-action-setup.md)
 3. [Part 3: Azure Boards and GitHub](docs/03-azure-devops-setup.md)
 4. [Part 4: Backlog planning](docs/04-backlog-planning.md)
-5. [Part 5: Sprint planning](docs/05-sprint-planning.md)
+5. [Part 5: Backlog Task preparation](docs/05-sprint-planning.md)
 6. [Part 6: Coding Agent delivery](docs/06-coding-agent-delivery.md)
 
 ## Security boundaries
