@@ -1,17 +1,18 @@
-# Part 5: Sprint Planning
+# Part 5: Backlog Task Preparation
 
 ## Goal
 
 In this part, you turn the **Constrained Ticket Status Q&A** Feature from Part 4
-into a small, ready-to-execute Sprint Backlog.
+into a small, ready-to-execute set of Azure Boards backlog Tasks.
 
 You use the Azure Boards specialist to select the smallest workshop set of
 product-facing User Stories that can produce a usable Increment. For this
 exercise, that means two User Stories, or three only when the third is necessary
 for a usable demo. For each selected Story, you identify the distinct,
 independently implementable units of work that can be handed to a GitHub Copilot
-coding agent as separate Tasks. You then place the selected work in one Sprint
-and verify that the resulting Sprint Backlog is ready for implementation.
+coding agent as separate Tasks. You then verify the work-item hierarchy and
+leave it in the Product Backlog, ready for the team to schedule in a Sprint
+later.
 
 By the end of this part, you will have:
 
@@ -20,14 +21,14 @@ By the end of this part, you will have:
   environment prerequisites, not Sprint scope
 - One or more implementation Tasks per selected User Story, as needed to
   describe agent-sized units of work
-- Verified parent-child relationships and Sprint assignments in Azure Boards
+- Verified parent-child relationships in Azure Boards
 - A reviewed execution order for the implementation Tasks
 
-This exercise plans only one Sprint for the core Feature. It does not plan the
-optional **Conversational Queue Insights** Feature, decompose every backlog
-item, create implementation work outside Azure Boards, assign work to a coding
-agent, or create speculative Tasks for future Sprints. Preparation for coding
-agent assignment continues in Part 6.
+This exercise does not configure Azure Boards iterations or team settings,
+create a Sprint, assign iteration paths, plan the optional
+**Conversational Queue Insights** Feature, decompose every backlog item, assign
+work to a coding agent, or create speculative Tasks for future Sprints.
+Preparation for coding-agent assignment continues in Part 6.
 
 ## Prerequisites
 
@@ -39,9 +40,9 @@ Before continuing:
 - Confirm that `az devops configure --list` shows the intended Azure DevOps
   organization and project.
 
-## 1. Set the Sprint planning boundaries
+## 1. Set the backlog planning boundaries
 
-Before asking an agent to create work items, agree on a small planning budget:
+Before asking an agent to create work items, agree on a small planning scope:
 
 | Decision | Workshop value |
 | --- | --- |
@@ -62,8 +63,8 @@ Tasks for routine substeps such as formatting.
 Do not split work into arbitrary or overly small Tasks just to increase the
 count. If a Story cannot be divided into clear, independently implementable
 units without overlap or excessive coordination, keep its work in one cohesive
-Task or return the Story to Product Backlog refinement if its scope is too large
-for the Sprint.
+Task or return the Story to Product Backlog refinement if its scope cannot be
+split into clear, independently implementable Tasks.
 
 > [!NOTE]
 > Scrum does not require Tasks or prescribe how many belong to a User Story.
@@ -71,43 +72,18 @@ for the Sprint.
 > should reflect the distinct, agent-ready work without speculative
 > decomposition.
 
-## 2. Define the Sprint
-
-Choose the Sprint name and dates with the Scrum Team. Use an existing Sprint
-iteration when one already represents the agreed timebox. Otherwise, create
-one before drafting the Sprint Backlog.
-
-Configure the Sprint in Azure Boards:
-
-1. Open **Boards** > **Sprints** > **Backlog**, then select the intended team.
-2. If the team already has a suitable Sprint, select **Set dates**, enter the
-   approved start and finish dates, and save the iteration.
-3. If no suitable Sprint exists:
-   1. Open **Project settings** > **Project configuration** > **Iterations**.
-   2. Create a child iteration with the approved Sprint name, start date, and
-      finish date.
-   3. Open **Project settings** > **Boards** > **Team configuration** >
-      **Iterations**.
-   4. Select the intended team and add the new iteration to that team.
-4. Return to **Boards** > **Sprints** and confirm that the Sprint appears for
-   the intended team with the approved dates.
-
-Only a team or project administrator can change team iteration settings. If
-you cannot create or select the Sprint, ask an administrator to complete these
-steps before continuing.
-
-## 3. Draft the Sprint Backlog
+## 2. Draft the backlog Tasks
 
 Select only the product-facing work needed to demonstrate read-only questions
 about one synthetic ticket with a grounded answer or clear fallback. Leave all
 other stories in the Product Backlog.
 
 Select `azure-boards-specialist` from the agent picker and submit the following
-prompt. Replace the Sprint placeholders before submitting it.
+prompt.
 
 ```text
-Prepare a Sprint Backlog for the Support Desk Simulator. Follow the standards
-in your Azure Boards specialist profile.
+Prepare Azure Boards backlog Tasks for the Support Desk Simulator. Follow the
+standards in your Azure Boards specialist profile.
 
 Environment and authorization:
 Run az devops configure --list to establish the intended Azure DevOps
@@ -117,27 +93,25 @@ and use that choice consistently for all Azure Boards write operations. Stop if
 it resolves to a different organization or project. Never request or create a
 personal access token or other credential.
 
-Approved Sprint context:
-Use this approved scope:
+Approved backlog scope:
 - Feature: Constrained Ticket Status Q&A
-- Sprint name: <sprint-name>
-- Sprint start: <yyyy-MM-dd>
-- Sprint finish: <yyyy-MM-dd>
+- Create only the selected Stories and their implementation Tasks described
+  below. Do not create or configure a Sprint.
 
 Discovery:
 First inspect the repository and Azure Boards. Find the existing Feature and
-all of its child User Stories. Search for existing Sprints and Tasks that
-already represent this work. Reuse or update matching records; do not create
-duplicates. Verify that the approved Sprint exists, has the supplied dates,
-and is selected for the intended team. Stop and report any mismatch instead of
-creating another Sprint. Use the successful Part 1 deployment output as
-confirmation that the Microsoft Foundry resource, support-sim-project project,
-and gpt-5.4-mini model deployment are provisioned. Treat them as environment
-prerequisites, not Sprint scope.
+all of its child User Stories, and search for existing Tasks that already
+represent this work. Reuse or update matching records; do not create
+duplicates. Do not inspect or change project/team iterations or Sprint dates.
+Do not assign iteration paths. Leave all work items in the Product Backlog
+with their existing iteration values unchanged. Use the successful Part 1
+deployment output as confirmation that the Microsoft Foundry resource,
+support-sim-project project, and gpt-5.4-mini model deployment are provisioned.
+Treat them as environment prerequisites, not backlog scope.
 
-Sprint Backlog boundaries:
-Propose the smallest coherent Sprint Backlog that can produce the approved
-demo outcome:
+Backlog boundaries:
+Propose the smallest coherent set of backlog work that can produce the
+approved demo outcome when scheduled for a future Sprint:
 - Select two existing product-facing User Stories, or three only when the
   third is necessary for a usable Increment.
 - Create one or more implementation Tasks under each selected User Story,
@@ -155,12 +129,13 @@ demo outcome:
   Foundry resource, project, and model deployment already exist from Part 1.
   Product-facing Tasks may use them only where their parent Story requires it;
   they must not provision or reconfigure these resources.
-- Do not add the optional Conversational Queue Insights Feature to this Sprint.
+- Do not add the optional Conversational Queue Insights Feature to this
+  backlog scope.
 - Do not invent estimates, capacity, a Definition of Done, organization policy,
   or acceptance criteria.
 - If a selected User Story is too large for a set of independently
-  implementable Tasks to fit in the Sprint, identify it for refinement and
-  exclude it from the proposed Sprint.
+  implementable Tasks, identify it for refinement and do not create Tasks for
+  that Story until its scope is clear.
 
 Task requirements:
 Each proposed Task must include:
@@ -177,10 +152,10 @@ Each proposed Task must include:
 > Part 1 provisions the Microsoft Foundry resource, `support-sim-project`, and
 > the GPT-5.4-mini model deployment. The application does not yet call the
 > model. Do not create or select a Foundry infrastructure-enablement Story or
-> Task in this Sprint. If any foundation resource is missing, stop and report
-> the Part 1 deployment prerequisite instead of adding provisioning to the
-> Sprint. Any application Task that calls Foundry must use managed identity
-> and least-privilege RBAC; do not use API keys or connection strings.
+> Task in this backlog scope. If any foundation resource is missing, stop and
+> report the Part 1 deployment prerequisite instead of adding provisioning to
+> the backlog. Any application Task that calls Foundry must use managed
+> identity and least-privilege RBAC; do not use API keys or connection strings.
 
 Product and security constraints:
 Preserve these confirmed product constraints:
@@ -198,7 +173,7 @@ Preserve these confirmed product constraints:
 Approval checkpoint:
 Before writing anything:
 1. Report the resolved Azure DevOps organization, project, process, identity,
-   intended team, and configured Sprint iteration.
+   and the selected Feature.
 2. Present the selected User Stories and the resulting demo outcome.
 3. Explain why each selected User Story is necessary and why each unselected
    User Story remains in the Product Backlog.
@@ -208,41 +183,41 @@ Before writing anything:
    coding-agent-sized Tasks.
 5. List assumptions, open questions, dependencies, and the proposed execution
    order separately.
-6. State the exact create, update, link, and Sprint assignment operations.
+6. State the exact create, update, and parent-link operations. Confirm that
+   no iteration or Sprint configuration or assignment will be changed.
 7. Ask for explicit approval of those operations.
 
 Approved execution:
 After I approve:
-1. Reuse the configured Sprint iteration and verify its dates and intended
-   team. Do not create another iteration.
-2. Create or update only the approved product-facing User Stories, Tasks, and
+1. Create or update only the approved product-facing User Stories, Tasks, and
    parent-child links.
-3. Assign the selected User Stories and Tasks to the Sprint iteration.
-4. Read every changed Azure Boards work item back from Azure Boards.
-5. Report the IDs, titles, types, states, parents, iteration paths, URLs,
+2. Leave iteration paths unchanged. Do not create or configure iterations,
+   Sprint dates, or team iteration settings.
+3. Read every changed Azure Boards work item back from Azure Boards.
+4. Report the IDs, titles, types, states, parents, current iteration paths, URLs,
    dependencies, and verification results.
 
-Stop and report the exact failure if an item cannot be created, linked,
-assigned, or verified. Do not create a replacement or report success-shaped
-fallback output.
+Stop and report the exact failure if an item cannot be created, linked, or
+verified. Do not create a replacement or report success-shaped fallback output.
 ```
 
 The specialist should stop after presenting the proposal. Check that the
-proposal stays within the planning budget and that the selected stories can
-produce a usable Increment. Approve the exact operations only after resolving
-the reported assumptions and open questions.
+proposal stays within the planning scope and that the selected stories can
+produce a usable Increment when scheduled for a future Sprint. Approve the
+exact operations only after resolving the reported assumptions and open
+questions.
 
-## 4. Review the Sprint Backlog
+## 3. Review the backlog Tasks
 
-After the approved changes are complete, review the Sprint in Azure Boards.
-Open **Boards** > **Sprints**, select the Sprint, and review its backlog.
+After the approved changes are complete, review the Feature backlog in Azure
+Boards. Open **Boards** > **Backlogs** and select the appropriate backlog level.
 
 Confirm that:
 
-- The Sprint has the agreed name and dates.
-- The Sprint iteration is selected for the intended team.
-- Only the selected **Constrained Ticket Status Q&A** User Stories are assigned
-  to the Sprint.
+- No iteration, Sprint dates, or team iteration settings were created or
+  changed.
+- Only the selected **Constrained Ticket Status Q&A** User Stories have
+  implementation Tasks created or updated.
 - The selected User Stories are product-facing; no Foundry infrastructure
   provisioning Story or Task was created.
 - Each selected User Story has the necessary implementation Tasks, with
@@ -250,11 +225,11 @@ Confirm that:
 - No Task scopes overlap or split work into arbitrary routine substeps.
 - Each Task has exactly one parent User Story.
 - Every Task has a concrete completion condition and test evidence.
-- Unselected stories and the optional Feature remain outside the Sprint.
+- Unselected Stories and the optional Feature remain outside this backlog
+  scope.
 - No estimate, capacity, policy, or Definition of Done was invented.
 
-Set the IDs reported by the specialist, then verify the hierarchy and iteration
-paths independently:
+Set the IDs reported by the specialist, then verify the hierarchy independently:
 
 ```powershell
 $WORK_ITEM_IDS = @(
@@ -270,30 +245,30 @@ foreach ($id in $WORK_ITEM_IDS) {
     --id $id `
     --detect false `
     --expand none `
-    --fields System.Id,System.WorkItemType,System.Title,System.Parent,System.State,System.IterationPath `
+    --fields System.Id,System.WorkItemType,System.Title,System.Parent,System.State `
     --output table
 }
 ```
 
 Include the Feature, every selected User Story, and every new Task in
-`$WORK_ITEM_IDS`. The Feature can remain outside the Sprint; the selected User
-Stories and all their Tasks must report the Sprint iteration path. Review each
-Task's parent, scope, and dependencies so the approved execution order is
-usable for individual coding-agent handoffs.
+`$WORK_ITEM_IDS`. Verify each Task's parent, scope, and dependencies so the
+approved execution order is usable for individual coding-agent handoffs. Keep
+all work in the Product Backlog; the team can configure its Sprint and assign
+iteration paths later through its normal planning process.
 
 If a field or link is wrong, ask the specialist to correct only that item and
 verify it again. Do not create a replacement.
 
-### Sprint Backlog ready
+### Backlog ready for Sprint planning
 
-The Sprint now has a clear scope, a small set of selected User Stories, and
+The Project now has a clear Feature backlog with selected User Stories and
 distinct implementation Tasks that can be handed to coding agents individually.
-No implementation work has been created or assigned outside Azure Boards.
+No iterations or Sprints were configured, and no iteration paths were changed.
+The team can schedule these backlog items during its normal Sprint planning.
 Continue to [Part 6](06-coding-agent-delivery.md) to prepare Tasks for coding
 agent assignment.
 
 ## Public documentation used for validation
 
 - [The Scrum Guide](https://scrumguides.org/scrum-guide.html)
-- [Sprint and scrum best practices in Azure Boards](https://learn.microsoft.com/azure/devops/boards/sprints/best-practices-scrum)
 - [Organize your backlog and map child work items](https://learn.microsoft.com/azure/devops/boards/backlogs/organize-backlog)
