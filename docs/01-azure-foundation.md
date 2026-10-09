@@ -90,6 +90,38 @@ gh api "repos/$GITHUB_REPOSITORY" `
 `isFork` and `admin` must be `true`, and `upstream` must be
 `jasonfarrell-msft/ws-ai-sdlc`.
 
+### Contribute fixes without replacing your fork
+
+Keep `origin` pointed at your fork and `upstream` pointed at the parent
+repository. Make fixes on a topic branch and push that branch to `origin`,
+then open a pull request from the fork branch to the parent's `main`:
+
+```powershell
+git remote -v
+git switch -c fix/foundry-deployment-order
+# Make, validate, and commit the changes before pushing.
+git push -u origin fix/foundry-deployment-order
+gh pr create `
+  --repo jasonfarrell-msft/ws-ai-sdlc `
+  --base main `
+  --head '<your-github-username>:fix/foundry-deployment-order'
+```
+
+After the pull request is merged upstream, synchronize your fork from a clean
+working tree:
+
+```powershell
+git fetch upstream
+git switch main
+git pull --ff-only origin main
+git merge --ff-only upstream/main
+git push origin main
+```
+
+These commands preserve the fork. If a fast-forward fails because the branches
+have diverged, stop and reconcile the history rather than force-pushing or
+resetting away fork-specific commits.
+
 ## 2. Check the required tools
 
 ```powershell
@@ -191,6 +223,19 @@ The script performs four visible stages:
 
 Rerunning the command with the same initials updates the same environment.
 `-SkipCodeDeploy` provisions only infrastructure.
+
+The GPT-5.4-mini deployment belongs to the Foundry account, not the project.
+The template provisions the account, then its model deployment, then its
+project. The project's explicit dependency on the model deployment controls
+operation order only; both resources remain children of the account. This
+prevents their writes from running concurrently and causing an account-level
+`RequestConflict`.
+
+If Azure still reports another operation in progress, inspect the deployment
+operations and the account's Activity Log for an overlapping external operation.
+Allow that operation to finish before rerunning the same command with the same
+initials. Do not delete the environment just to retry a partially completed
+deployment.
 
 The first deployment can pause at stage 3 while Azure publishes the new SCM
 DNS record. The script retries that readiness check for up to five minutes
