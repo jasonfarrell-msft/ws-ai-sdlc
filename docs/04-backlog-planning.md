@@ -29,6 +29,12 @@ Before continuing:
   organization and project.
 - Confirm that your project uses the Azure Boards Agile process.
 
+Part 1 provisions the Microsoft Foundry resource, the `support-sim-project`
+project, and the GPT-5.4-mini model deployment. They already exist for this
+workshop; do not create backlog work to provision them again. The application's
+managed-identity access to Foundry is a separate implementation dependency and
+must not be assumed to exist.
+
 ### Why define a custom agent
 
 Scrum defines the Product Backlog and Product Backlog items, but it does not
@@ -419,9 +425,13 @@ Apply these requirements across the hierarchy:
 - Do not expose ticket content, prompts, or model responses in logs.
 - Include measurable success indicators and observable Given/When/Then
   acceptance criteria.
-- Record the approved AI model connection, managed identity access, usage
-  limits, and monitoring as dependencies or constraints rather than assuming
-  they already exist.
+- Use the Microsoft Foundry resource, `support-sim-project` project, and
+  GPT-5.4-mini model deployment provisioned in Part 1. Do not create work items
+  to provision or recreate them.
+- Record application-level model connection details, managed-identity access,
+  usage limits, and monitoring as dependencies or constraints. Do not assume
+  runtime access is already configured just because the Foundry resource and
+  model deployment exist.
 
 Decompose each Feature into small, independently valuable User Stories that
 could fit within one Sprint. Create 3 or 4 User Stories for Feature 1 and 2 or
