@@ -144,6 +144,9 @@ resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2026-07-0
   ]
   name: foundryProjectName
   location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
   tags: commonTags
   properties: {
     description: 'Default Microsoft Foundry project for the Support Desk Simulator.'

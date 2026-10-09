@@ -265,8 +265,10 @@ deployment names. Parts 5 and 6 assume that the Microsoft Foundry resource,
 project, and model deployment already exist; they do not add infrastructure
 provisioning work to the Sprint.
 
-The Foundry account uses a system-assigned managed identity, and local key
-authentication is disabled on the account. GPT-5.4-mini model version
+The Foundry account and project each use their own system-assigned managed
+identity. The project identity must be explicitly configured; it does not
+inherit the account's identity. Local key authentication is disabled on the
+account. GPT-5.4-mini model version
 `2026-03-17` is deployed as `GlobalStandard` with capacity 50 in the resource
 group's region (targeting 50,000 tokens per minute). Confirm that the model
 deployment is available and quota is approved for that region before
