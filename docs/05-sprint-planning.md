@@ -1,8 +1,15 @@
 # Part 5: Backlog Task Preparation
 
 Turn a small selection of existing User Stories into Tasks a coding agent can
-implement separately. The outcome is a reviewed backlog, not a configured
-Sprint or a working application.
+implement and deploy separately. Each Task must deliver a tangible change,
+not merely a routine substep. The outcome of this exercise is a reviewed
+backlog, not a configured Sprint, a deployment, or a working application.
+
+The Feature defines the complete experience; Stories define bounded,
+acceptable components of it. Tasks are the units of implementation and
+deployment. A Story is complete when all necessary work and its acceptance
+criteria are satisfied, not when its implementation is first deployed.
+Do not hold all Task deployments until the Story is complete.
 
 ## Before you start
 
@@ -17,10 +24,11 @@ them again. Runtime model access may still be an external dependency.
 ## 1. Draft the Tasks
 
 The demo should answer a status or assignee question about one synthetic ticket,
-identify its source, and give a clear fallback when it cannot answer.
-Normally the answer Story and fallback Story are sufficient. Source attribution
-already required by an answer Story does not by itself require selecting a
-third Story.
+identify its source, and give a clear fallback when it cannot answer through an
+accessible interaction in the existing application. Select the smallest set
+of existing Stories that covers that outcome, rather than assuming particular
+Story titles or a fixed count. Source attribution already required by an answer
+Story does not by itself require selecting another Story.
 
 Submit this prompt:
 
@@ -42,20 +50,53 @@ Discovery:
   endpoint and managed-identity access separately from code/test completion.
 
 Selection:
-- Select two existing product-facing Stories: normally status/assignee answers
-  and safe fallbacks. Select a third only if necessary for a usable demo.
+- Select the smallest set of existing product-facing Stories needed for the
+  status/assignee demo, including application interaction and safe fallbacks.
+  Explain how their existing criteria cover the selected demo outcome.
 - Reuse selected Stories unchanged. If scope is unclear or too large, identify
-  the Story for refinement; do not draft Tasks for it until resolved.
+  the Story for refinement; do not draft Tasks for it until resolved. If required
+  UI or AI behavior is absent from the existing criteria, name the affected
+  Story and missing scope and return to Part 4 for separately approved
+  refinement. Do not invent criteria or silently add a new Story here.
 - Leave other Stories and Conversational Queue Insights untouched.
-- Create only the Tasks needed for distinct, coding-agent-sized units.
-  No fixed count. Include related tests/docs within each unit; do not create
-  routine substep Tasks. Keep scopes non-overlapping and dependencies explicit.
+
+Task decomposition:
+- Create only the Tasks needed for distinct, coding-agent-sized, tangible units
+  of implementation and deployment. No fixed count. A Task need not deliver
+  the whole Story; completing all its Tasks must satisfy that Story's criteria.
+- Explicitly assess the implementation units needed across backend, frontend,
+  and agent/prompt behavior. Candidate boundaries include:
+  - Backend: application/API contracts, current-ticket fact retrieval,
+    existing caller access checks, and grounded answer construction.
+  - Frontend: ticket/question input, answer/source and fallback presentation,
+    and accessible interaction in the existing application.
+  - Agent/prompt: application-level agent or prompt artifacts, constrained
+    question interpretation, model adapter integration, validated outputs,
+    and automated behavior evaluations when AI is required by the Story.
+  These are candidate units, not a mandatory three-Task template. Explain
+  combinations or omissions. Agent/prompt work does not authorize provisioning
+  a hosted agent or imply a particular Foundry agent architecture.
+- State the tangible result deployed by each Task and how it preserves current
+  behavior while related work is incomplete. Define the necessary interfaces,
+  integration points, and prerequisite Tasks. Use existing compatibility or
+  gating conventions where needed; do not assume unfinished capabilities are
+  exposed or defer all deployments until Story completion.
+- Give each behavior a clear owner. Include relevant fallback handling,
+  security checks, tests, and directly related documentation within its unit;
+  do not hide all safeguards in a catch-all Task or create routine substep Tasks.
+- Use explicit contracts and test doubles where appropriate so independent
+  units can be developed and checked without live inference. Record actual
+  integration dependencies, not artificial sequencing of otherwise independent
+  work. Keep scopes non-overlapping.
 
 Each Task draft must include:
 - Action-oriented title and existing parent Story ID.
 - Bounded implementation scope and inspected repository areas likely to change.
+- Tangible deployable result, interface ownership, and safe behavior when
+  related Tasks are not yet deployed.
 - Verifiable completion tied to the parent's existing acceptance criteria.
-- Required automated test evidence for that unit.
+- Required automated test evidence for that unit, including relevant success,
+  fallback/error, and compatibility cases without live model calls or secrets.
 - Relevant security, privacy, reliability, and accessibility constraints.
 - Dependencies/blockers, including prerequisite Tasks and execution order.
 
@@ -78,6 +119,10 @@ Report verified scope/identity and Feature once. Show selected Stories and
 Task drafts in parent-to-child order; state the demo outcome and briefly
 explain selection, exclusions, and each Task split. Show shared constraints
 once, with inheritance explicit. Do not repeat entire Story descriptions.
+Show which existing Story criteria each Task contributes to and check that the
+Tasks collectively fulfill each selected Story. Make backend, frontend, and
+agent/prompt ownership visible and explain how each Task can be deployed;
+neither Task completion nor deployment alone means the whole Story is complete.
 List assumptions, open questions, dependencies, and execution order separately.
 Identify existing Tasks to reuse and specify exact create, field-update, and
 Parent-link operations; record prerequisite IDs in descriptions without
@@ -101,8 +146,12 @@ verification for every affected item. Stop on a real failure; no replacements.
 ## 2. Approve the proposal
 
 Check that the selected Stories deliver the demo outcome and every Task has a
-clear scope, completion condition, tests, and dependencies. Unresolved runtime
-access must be visible, not disguised as a provisioning Task or assumed ready.
+clear scope, tangible deployable result, completion condition, tests, and
+dependencies. Check that backend, frontend, and agent/prompt responsibilities
+are accounted for without forcing a fixed number of Tasks, and that completing
+the Tasks would fulfill each selected Story. Deployment is per Task, not held
+until Story completion. Unresolved runtime access must be visible, not
+disguised as a provisioning Task or assumed ready.
 
 If the proposal is correct, reply:
 
@@ -119,6 +168,8 @@ Use the returned links to spot-check the selected Stories and Tasks:
 
 - Each Task has the correct Story parent and approved scope.
 - Descriptions include completion evidence and actual prerequisite Task IDs.
+- Each Task identifies its deployable change and safe integration with work
+  that may not yet be deployed; Story completion is not a deployment gate.
 - Existing iteration values are unchanged; new Tasks use the root backlog path.
 - Unselected Stories are untouched and no provisioning work was added.
 

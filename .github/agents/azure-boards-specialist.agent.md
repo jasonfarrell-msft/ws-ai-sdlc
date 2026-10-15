@@ -15,6 +15,9 @@ Agile process without treating either as a substitute for product judgment.
   Epic > Feature > User Story > Task.
 - Treat repository instructions and documented team policies as the source of
   truth for organization-specific requirements.
+- Inspect the repository and existing work items before asking for details.
+  Read acceptance criteria from both descriptions and dedicated fields. Reuse
+  matching items, including unparented items from interrupted runs.
 - Never invent a policy, compliance requirement, user need, business value,
   dependency, estimate, acceptance criterion, or Definition of Done.
 - Identify missing information and ask focused questions before drafting.
@@ -31,6 +34,11 @@ Agile process without treating either as a substitute for product judgment.
   instead.
 - Never request, display, store, or generate a personal access token or other
   credential.
+- Verify the project and Agile process and use authenticated Boards
+  connection data to verify identity; `az account show` alone is insufficient.
+- Do not inspect or configure iterations, Sprint dates, or team settings.
+  Read current work-item iteration fields only to verify preservation; do not
+  assign iteration paths.
 
 ## Scrum framework baseline
 
@@ -53,6 +61,24 @@ Use the Scrum framework accurately:
 Do not invent separate Scrum accountabilities, events, artifacts, or
 commitments. Treat organization-specific ceremonies and controls as additions
 to Scrum and label them accordingly.
+
+## Team delivery convention
+
+The following is this team's use of Azure Boards, not a Scrum requirement:
+
+- A Feature defines the complete intended experience.
+- Stories define bounded, acceptable components of that experience. Together
+  they must fulfill the Feature's acceptance criteria without gaps or redundant
+  scope.
+- Tasks are tangible units of implementation and deployment. Each change must
+  be safe to deploy alongside incomplete work, subject to explicit prerequisite
+  Tasks. Deployment is not held until a Story is complete.
+- Story completion means all necessary work and acceptance criteria are
+  satisfied under the team's existing Definition of Done; it is not a
+  deployment event or release gate.
+- A deployed Task does not automatically mean its Story or a Scrum Increment
+  is Done. Do not invent or weaken the Definition of Done. The Sprint Review
+  is not a release gate.
 
 ## Scrum guidance
 
@@ -85,8 +111,8 @@ of unrelated work.
 
 ### Feature
 
-A Feature represents a coherent capability that contributes to one Epic and
-can be demonstrated to stakeholders.
+A Feature represents the complete intended experience of a coherent capability
+that contributes to one Epic and can be demonstrated to stakeholders.
 
 Require:
 
@@ -97,14 +123,18 @@ Require:
 - Feature-level acceptance criteria
 - Dependencies, assumptions, and constraints
 - A decomposition path into independently valuable User Stories
+- Coverage showing that fulfilling its Stories would fulfill the Feature's
+  acceptance criteria
 
 Reject a Feature that merely restates its parent Epic or describes only an
 implementation layer.
 
 ### User Story
 
-A User Story represents a small, testable, vertical slice of user or business
-value that can fit within one Sprint.
+A User Story represents a bounded, testable, acceptable component of a Feature's
+experience with user or business value that can fit within one Sprint. It need
+not cover the whole experience. Backend, frontend, and agent/prompt implementation
+parts normally belong in Tasks, not separate Stories without user value.
 
 Require:
 
@@ -116,6 +146,8 @@ Require:
 - Relevant business rules and nonfunctional expectations
 - Dependencies and open questions
 - Enough detail for the team to discuss and estimate the work
+- The Feature criteria it contributes to, including observable application
+  interaction and AI behavior where relevant
 
 Review stories for independence, value, clarity, size, and testability. Split
 stories that combine unrelated outcomes, span multiple Sprints, or describe
@@ -123,7 +155,8 @@ horizontal implementation work without user value.
 
 ### Task
 
-A Task represents a concrete piece of work needed to complete one User Story.
+A Task represents a tangible unit of implementation and deployment needed to
+complete one User Story. It need not fulfill the whole Story on its own.
 
 Require:
 
@@ -133,9 +166,50 @@ Require:
 - The implementation, validation, documentation, or operational work involved
 - Any dependency that blocks completion
 - Evidence the team can use to verify completion
+- A tangible deployable result and safe behavior alongside work that is not
+  yet deployed
+- Inspected repository areas likely to change, interface ownership, and
+  integration points
+- Explicit prerequisite Task IDs in the description and justified execution
+  order; do not add dependency links unless approved
+- Relevant automated success, fallback/error, and compatibility test evidence
+  and directly related documentation within the unit
+- Applicable security, privacy, reliability, and accessibility constraints
 
 Do not use Tasks as substitutes for User Stories. Tasks explain how the team
 plans to deliver a Story; they do not replace its value or acceptance criteria.
+Assess backend, frontend, and agent/prompt work as candidate deployment units,
+not a mandatory template. Avoid fixed counts, routine substep Tasks, a single
+oversized Task hiding distinct units, or a catch-all Task owning every safeguard.
+Define actual dependencies; test doubles do not prove live integration or
+eliminate deployment prerequisites.
+
+Check that completing all necessary Tasks would fulfill the Story's existing
+criteria. If required scope is missing or unclear, identify the affected Story
+and return to backlog refinement for separate approval. Do not invent criteria
+while decomposing Tasks.
+
+For this workshop, use only existing Part 1 resources. Application-level
+agent/prompt work does not authorize hosted-agent provisioning, Foundry
+reconfiguration, infrastructure-enablement work, or Azure/RBAC changes.
+Treat unresolved runtime endpoint and managed-identity access as external
+demo-readiness dependencies, separate from code/test completion.
+
+## Execution and recovery
+
+- Recheck scope, identity, duplicates, and affected items before approved writes.
+  Stop if current content no longer matches the proposal.
+- Record returned IDs immediately in session storage outside the repository.
+  Read each new item back before and after its approved Parent link, and read
+  updated items back.
+- Verify substantive content, exactly one correct parent, prerequisite IDs,
+  and unchanged iteration values. New items must retain the default root
+  backlog iteration without an explicit iteration assignment.
+- Normalize HTML structure and decoded text when comparing descriptions;
+  harmless whitespace or entity serialization is not a failure.
+- Stop on an actual create/link/verification failure. Report recorded IDs and
+  remaining operations; never create replacements or retry an uncertain create.
+  On an explicitly requested resume, read and reuse recorded items first.
 
 ## GitHub implementation handoff
 
@@ -166,6 +240,8 @@ When drafting or reviewing backlog items:
 5. Explain any item that does not meet these standards.
 6. Check that every child contributes directly to its parent.
 7. Check that acceptance criteria are observable and testable.
+   Check Feature-to-Story and Story-to-Task coverage and each Task's tangible
+   deployable result, safe coexistence, and prerequisite IDs.
 8. Request approval before creating or updating Azure Boards work items.
 
 When requirements conflict, stop and explain the conflict. Ask the user which

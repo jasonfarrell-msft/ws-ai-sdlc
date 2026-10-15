@@ -34,6 +34,16 @@ Epic > Feature > User Story > Task. Keep product decisions with the Product
 Owner and scheduling with the team. Do not invent team policy, estimates,
 capacity, a Definition of Done, or product requirements.
 
+## Scrum and team delivery conventions
+
+Scrum does not prescribe the Azure Boards hierarchy or Task-level deployment.
+These are this team's delivery conventions: Features define complete intended
+experiences, Stories define bounded acceptable components, and Tasks are
+tangible implementation and deployment units. A deployed Task does not
+automatically make its Story or a Scrum Increment Done; the team's existing
+Definition of Done still applies. Neither Story completion nor the Sprint
+Review is a release gate. Do not invent or weaken the Definition of Done.
+
 ## Discover before asking
 
 - Inspect the repository and existing work items first. Reuse matching items,
@@ -81,14 +91,27 @@ capacity, a Definition of Done, or product requirements.
 - Epic: outcome-oriented title, problem/users/value, measurable success,
   boundaries, risks, and dependencies.
 - Feature: one parent Epic, demonstrable capability/value, observable
-  acceptance criteria, constraints, and a path to User Stories.
+  acceptance criteria, constraints, and a path to User Stories. Define the
+  complete intended experience at this level; the Stories collectively must
+  fulfill the Feature.
 - User Story: one parent Feature; "As a <user>, I want <capability>, so that
   <value>"; observable Given/When/Then criteria; relevant rules and dependencies.
-  Keep it a small, independently valuable slice, not an implementation layer.
+  Define a bounded, acceptable component of the Feature's experience, not the
+  entire experience or an arbitrary implementation layer. Story completion
+  means all necessary work and acceptance criteria are satisfied; it is not
+  a deployment event or a release gate.
 - Task: one parent Story, action-oriented title, bounded implementation scope,
   completion tied to existing Story criteria, automated test evidence, relevant
   security/privacy/reliability/accessibility constraints, dependencies with
   prerequisite Task IDs, and inspected repository areas likely to change.
+  Each Task is a tangible unit of implementation and deployment. Its change
+  must be deployable while preserving existing behavior, even if the Story's
+  capability is not yet fully available. Tasks may separate backend, frontend,
+  and agent/prompt work when these are meaningful deployable units. They do
+  not each have to fulfill the whole Story. Define interfaces, prerequisites,
+  and safe coexistence with incomplete work; do not defer all deployment until
+  Story completion. Test doubles do not prove live integration or eliminate
+  deployment prerequisites.
 - Derive criteria from supplied product requirements; do not add new behavior.
   Do not rewrite approved criteria without explicit approval. Include related
   tests and documentation in the implementation Task unless independently
@@ -144,6 +167,9 @@ the backlog in the same step.
 
 The core Feature answers questions about one ticket. The optional Feature
 answers questions across the queue; it stays outside the later coding exercise.
+The Feature defines the complete intended experience. Its Stories are bounded,
+acceptable components that collectively fulfill it. Part 5 decomposes selected
+Stories into tangible, deployable Tasks; a Story is not a deployment gate.
 
 Submit this prompt to the specialist:
 
@@ -158,7 +184,9 @@ Use this hierarchy:
 - Core Feature: Constrained Ticket Status Q&A
   Read-only, single-turn status, assignee, priority, and product questions
   about one explicitly identified ticket. Answer from current caller-visible
-  data and identify the source ticket.
+  data and identify the source ticket. The complete experience includes an
+  accessible interaction in the existing application to submit the ticket ID
+  and question and view an answer/source or a clear fallback.
 - Optional Feature: Conversational Queue Insights
   Constrained counts by status, filtered lists, unassigned counts, product
   comparisons, and status summaries. Application logic performs calculations;
@@ -178,9 +206,24 @@ For both Features:
   least-privilege access, usage limits, and monitoring as dependencies where
   unresolved; do not invent thresholds. No keys or connection strings.
 
-Propose 3-4 product-facing Stories for the core Feature and 2-3 for the optional
-Feature. Derive measurable success indicators and observable acceptance
-criteria from these requirements. Apply your profile's item-quality rules.
+Propose the product-facing Stories needed to fulfill each Feature; do not force
+a fixed count. Each Story must define a bounded, acceptable component of the
+experience with observable acceptance criteria, not the entire Feature or a
+backend/frontend/agent implementation layer.
+
+For the core Feature, make application interaction, grounded AI-assisted
+answers, source presentation, and safe fallback behavior explicit in the
+Feature criteria and covered by the Stories. Include labeled, keyboard-operable
+controls and explicit result/error feedback where relevant. Do not assume an
+API-only capability satisfies an application interaction requirement. Keep the
+model's role constrained: application logic retrieves facts; the model cannot
+invent ticket facts or take actions. Do not prescribe a hosted-agent architecture.
+
+Derive measurable success indicators and observable acceptance criteria from
+these requirements. Show which Feature criteria each Story covers and check
+that fulfilling all Stories would fulfill the Feature without gaps or redundant
+scope. Keep Stories small enough to discuss and estimate; do not combine the
+whole experience into one oversized Story. Apply your profile's item-quality rules.
 No Tasks, implementation designs, estimates, assignments, or Sprint setup.
 
 Show the exact hierarchy/drafts and create/update/Parent-link operations;
@@ -195,7 +238,11 @@ Leave existing iteration values unchanged; do not assign new iteration paths.
 ## 3. Approve and check
 
 Review the proposal for product scope, testable criteria, and correct reuse
-of existing items. If it matches your intent, reply:
+of existing items. Check that each Story is an acceptable chunk of the Feature
+and that the Stories collectively cover its complete experience, including the
+core application's interaction and AI behavior. Story completion must not be
+treated as the point at which all implementation work is deployed. If it
+matches your intent, reply:
 
 ```text
 Approve the exact proposed operations.
