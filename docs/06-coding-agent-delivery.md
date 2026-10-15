@@ -37,32 +37,9 @@ Before continuing:
 Record each selected Story and its associated implementation Task IDs reported
 at the end of Part 5. A Story can have multiple Tasks:
 
-```powershell
-$IMPLEMENTATION_PAIRS = @(
-  [pscustomobject]@{ StoryId = <selected-story-id>; TaskId = <selected-task-id> },
-  [pscustomobject]@{ StoryId = <selected-story-id>; TaskId = <another-task-id> }
-)
-```
-
 Record one pair for each Task, repeating a Story ID when that Story has more
 than one Task. Review every approved pair. Read each Story and Task before
 changing any item:
-
-```powershell
-foreach ($pair in $IMPLEMENTATION_PAIRS) {
-  az boards work-item show `
-    --id $pair.StoryId `
-    --detect false `
-    --expand none `
-    --output table
-
-  az boards work-item show `
-    --id $pair.TaskId `
-    --detect false `
-    --expand none `
-    --output table
-}
-```
 
 Confirm that:
 
@@ -146,23 +123,6 @@ assumptions and open questions.
 ## 3. Verify the prepared Task
 
 Read the updated work items back from Azure Boards:
-
-```powershell
-$WORK_ITEM_IDS = @(
-  <selected-story-id>,
-  <selected-task-id>,
-  <another-task-id>
-)
-
-foreach ($id in $WORK_ITEM_IDS) {
-  az boards work-item show `
-    --id $id `
-    --detect false `
-    --expand none `
-    --fields System.Id,System.WorkItemType,System.Title,System.Parent,System.State,System.AssignedTo `
-    --output table
-}
-```
 
 Confirm that:
 

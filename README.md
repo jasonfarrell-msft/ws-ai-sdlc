@@ -85,39 +85,10 @@ Node.js and npm are neither required nor used.
 
 Restore and run the application:
 
-```powershell
-dotnet restore SupportDesk.slnx --locked-mode
-dotnet run `
-  --project ./src/SupportDesk.App/SupportDesk.App.csproj
-```
-
 Open the HTTPS URL printed by ASP.NET Core. The UI and API share the same
 origin. Verify the health endpoint:
 
-```powershell
-Invoke-RestMethod -Uri 'https://localhost:<port>/api/health'
-```
-
 ## Tests and validation
-
-```powershell
-dotnet format SupportDesk.slnx `
-  --verify-no-changes `
-  --no-restore
-
-dotnet build SupportDesk.slnx `
-  --configuration Release `
-  --no-restore
-
-dotnet test SupportDesk.slnx `
-  --configuration Release `
-  --no-build
-
-dotnet publish ./src/SupportDesk.App/SupportDesk.App.csproj `
-  --configuration Release `
-  --no-build `
-  --output ./artifacts/publish
-```
 
 The tests cover health, security headers, identity validation, filtering,
 ticket creation, assignment, status changes, activity history, knowledge search,
@@ -144,18 +115,8 @@ authentication mechanism.
 
 Validate the infrastructure:
 
-```powershell
-./infra/validate.ps1 `
-  -ResourceGroup '<resource-group-name>'
-```
-
 Provision App Service, publish the .NET application, ZIP-deploy it, and verify
 the application:
-
-```powershell
-./infra/deploy.ps1 `
-  -ResourceGroup '<resource-group-name>'
-```
 
 The deployment creates:
 

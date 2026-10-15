@@ -43,30 +43,7 @@ Before continuing:
 Set your Azure DevOps organization URL. Keep the recommended project name, or
 replace it with another name:
 
-```powershell
-$AZURE_DEVOPS_ORGANIZATION = 'https://dev.azure.com/<organization-name>'
-$AZURE_DEVOPS_PROJECT = 'Support-Sim'
-```
-
 Get the name of your GitHub fork:
-
-```powershell
-gh auth status
-gh repo set-default origin
-
-$GITHUB_REPOSITORY = gh repo view `
-  --json nameWithOwner `
-  --jq .nameWithOwner
-
-gh api `
-  "repos/$GITHUB_REPOSITORY" `
-  --jq '{
-    repository:.full_name,
-    isFork:.fork,
-    admin:.permissions.admin,
-    upstream:.parent.full_name
-  }'
-```
 
 The GitHub command must show `isFork: true`, `admin: true`, and upstream
 `jasonfarrell-msft/ws-ai-sdlc`.
@@ -75,17 +52,6 @@ The GitHub command must show `isFork: true`, `admin: true`, and upstream
 
 Install or update the Azure DevOps extension for Azure CLI:
 
-```powershell
-az extension add `
-  --name azure-devops `
-  --upgrade
-
-az extension show `
-  --name azure-devops `
-  --query '{name:name,version:version}' `
-  --output table
-```
-
 The extension supplies the `az devops` and `az boards` command groups.
 
 ## 3. Sign in as yourself
@@ -93,36 +59,12 @@ The extension supplies the `az devops` and `az boards` command groups.
 Sign in interactively with the Microsoft Entra account that has access to your
 Azure DevOps organization:
 
-```powershell
-az login
-
-az account show `
-  --query '{tenantId:tenantId,user:user.name}' `
-  --output table
-```
-
 If the browser cannot open, use device-code authentication:
-
-```powershell
-az login --use-device-code
-```
 
 If your account belongs to more than one tenant, sign in to the tenant that
 contains the Azure DevOps organization:
 
-```powershell
-az login `
-  --tenant '<tenant-id>'
-```
-
 Confirm that your signed-in identity can reach the organization:
-
-```powershell
-az devops project list `
-  --organization $AZURE_DEVOPS_ORGANIZATION `
-  --query 'value[].{name:name,visibility:visibility}' `
-  --output table
-```
 
 The command may return no projects if the organization is empty, but it must
 not return an authentication or authorization error.
@@ -136,18 +78,6 @@ not return an authentication or authorization error.
 
 Create a private project that uses the Agile work item process:
 
-```powershell
-az devops project create `
-  --organization $AZURE_DEVOPS_ORGANIZATION `
-  --name $AZURE_DEVOPS_PROJECT `
-  --description 'Support Desk Simulator workshop project' `
-  --process Agile `
-  --source-control git `
-  --visibility private `
-  --query '{name:name,state:state,visibility:visibility}' `
-  --output table
-```
-
 Project names must be unique within an Azure DevOps organization. If your
 chosen name already exists, either use that project if you administer it or
 change `$AZURE_DEVOPS_PROJECT` and run the command again.
@@ -159,24 +89,7 @@ the workshop source remains in your GitHub fork.
 
 Set the organization and project as defaults for later commands:
 
-```powershell
-az devops configure `
-  --defaults `
-  organization=$AZURE_DEVOPS_ORGANIZATION `
-  project=$AZURE_DEVOPS_PROJECT
-
-az devops configure `
-  --list
-```
-
 Verify that the defaults resolve to the new project:
-
-```powershell
-az devops project show `
-  --project $AZURE_DEVOPS_PROJECT `
-  --query '{name:name,state:state,visibility:visibility}' `
-  --output table
-```
 
 These defaults are stored in your local Azure CLI configuration. Local tools
 running as the same operating-system user can invoke `az devops` and
@@ -189,12 +102,6 @@ running as the same operating-system user can invoke `az devops` and
 ## 6. Connect the Azure Boards GitHub App
 
 Open the project in Azure DevOps:
-
-```powershell
-az devops project show `
-  --project $AZURE_DEVOPS_PROJECT `
-  --open
-```
 
 In the Azure DevOps browser window:
 
@@ -234,32 +141,9 @@ to Azure Repos and does not grant GitHub access to your Azure subscription.
 
 ## 7. Verify Boards access from the CLI
 
-Create a task that records completion of this setup:
-
-```powershell
-$WORK_ITEM_ID = az boards work-item create `
-  --detect false `
-  --type Task `
-  --title 'Connect Azure Boards to the workshop repository' `
-  --description "Connected to $GITHUB_REPOSITORY" `
-  --query id `
-  --output tsv
-
-az boards work-item show `
-  --id $WORK_ITEM_ID `
-  --detect false `
-  --expand none `
-  --fields System.Id,System.Title,System.State `
-  --output table
-```
-
-The command must return the new work item without requiring another sign-in.
-This verifies the identity, organization default, project default, and Boards
-permissions that local tools will use. `--detect false` tells the Azure DevOps
-extension to use the configured organization default instead of looking for an
-Azure Repos remote in this GitHub repository. `--expand none` is required when
-requesting a specific field list because the command otherwise defaults to
-`--expand all`.
+Create a task in Azure Boards that records completion of this setup. Successful
+creation verifies the signed-in identity, organization, project, and Boards
+permissions that local tools will use.
 
 ## Azure Boards setup complete
 
@@ -267,19 +151,3 @@ Your Azure DevOps project is connected to your GitHub fork, and your local
 Azure DevOps CLI context is ready. Local assistants and command-line tools can
 use `az boards` commands with your signed-in identity and your configured
 organization and project defaults.
-
-To inspect the active context at any time, run:
-
-```powershell
-az account show `
-  --query '{tenantId:tenantId,user:user.name}' `
-  --output table
-
-az devops configure `
-  --list
-
-az devops project show `
-  --project $AZURE_DEVOPS_PROJECT `
-  --query '{name:name,state:state,visibility:visibility}' `
-  --output table
-```

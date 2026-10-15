@@ -24,52 +24,16 @@ JavaScript package, Python, or frontend package-manager step.
 
 ## 1. Confirm access
 
-```powershell
-az account show `
-  --query '{subscription:name,id:id,user:user.name}' `
-  --output table
-
-gh auth status
-gh repo set-default origin
-
-$GITHUB_REPOSITORY = gh repo view `
-  --json nameWithOwner `
-  --jq .nameWithOwner
-```
-
 ## 2. Enable workflows in the fork
 
 Open the fork's Actions page and select
 **I understand my workflows, go ahead and enable them**:
 
-```powershell
-Write-Host "https://github.com/$GITHUB_REPOSITORY/actions"
-```
-
 Confirm that the workflow is registered and not `disabled_fork`:
-
-```powershell
-gh api "repos/$GITHUB_REPOSITORY/actions/workflows" `
-  --jq '.workflows[] | {path,state}'
-```
 
 ## 3. Set the Part 1 values
 
-```powershell
-$RESOURCE_GROUP = '<resource-group-name>'
-$ENVIRONMENT_NAME = '<initials>01'
-$AZURE_WEB_APP = '<web-app-name>'
-```
-
 ## 4. Configure Azure and GitHub
-
-```powershell
-./infra/configure-github-actions.ps1 `
-  -ResourceGroup $RESOURCE_GROUP `
-  -EnvironmentName $ENVIRONMENT_NAME `
-  -WebApp $AZURE_WEB_APP `
-  -Repository $GITHUB_REPOSITORY
-```
 
 The script creates:
 
@@ -87,12 +51,6 @@ The script creates:
 
 ## 5. Verify the configuration
 
-```powershell
-gh variable list `
-  --repo $GITHUB_REPOSITORY `
-  --env workshop-deployment
-```
-
 Expected variable names:
 
 ```text
@@ -104,16 +62,6 @@ AZURE_WEB_APP
 ```
 
 ## 6. Test the deployment loop
-
-```powershell
-gh workflow run deploy.yml `
-  --repo $GITHUB_REPOSITORY `
-  --ref main
-
-gh run list `
-  --repo $GITHUB_REPOSITORY `
-  --limit 5
-```
 
 The workflow:
 
@@ -148,11 +96,6 @@ unchanged for SDK 10.0.300.
 
 Azure role assignments can take several minutes to propagate. If the first run
 fails with authorization denied, wait two minutes and rerun it:
-
-```powershell
-gh run rerun '<run-id>' `
-  --repo $GITHUB_REPOSITORY
-```
 
 ## Automatic deployment setup complete
 

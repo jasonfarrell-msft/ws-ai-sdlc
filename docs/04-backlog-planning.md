@@ -19,10 +19,6 @@ Scrum does not require that hierarchy; it is how this workshop organizes work.
 
 Create the profile folder:
 
-```powershell
-New-Item -ItemType Directory -Path .github/agents -Force
-```
-
 Create `.github/agents/azure-boards-specialist.agent.md` with this content.
 If the profile already exists, review and update it rather than creating a
 second agent. Preserve any documented team requirements.

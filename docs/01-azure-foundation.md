@@ -61,31 +61,9 @@ Install any missing prerequisites:
 
 Open a new PowerShell terminal, then install Bicep:
 
-```powershell
-az bicep install
-```
-
 ## 1. Fork and clone the repository
 
-```powershell
-gh auth login
-gh repo fork jasonfarrell-msft/ws-ai-sdlc `
-  --clone `
-  --default-branch-only
-Set-Location ws-ai-sdlc
-gh repo set-default origin
-
-$GITHUB_REPOSITORY = gh repo view `
-  --json nameWithOwner `
-  --jq .nameWithOwner
-```
-
 Confirm that the repository is your fork:
-
-```powershell
-gh api "repos/$GITHUB_REPOSITORY" `
-  --jq '{repository:.full_name,isFork:.fork,admin:.permissions.admin,upstream:.parent.full_name}'
-```
 
 `isFork` and `admin` must be `true`, and `upstream` must be
 `jasonfarrell-msft/ws-ai-sdlc`.
@@ -96,42 +74,14 @@ Keep `origin` pointed at your fork and `upstream` pointed at the parent
 repository. Make fixes on a topic branch and push that branch to `origin`,
 then open a pull request from the fork branch to the parent's `main`:
 
-```powershell
-git remote -v
-git switch -c fix/foundry-deployment-order
-# Make, validate, and commit the changes before pushing.
-git push -u origin fix/foundry-deployment-order
-gh pr create `
-  --repo jasonfarrell-msft/ws-ai-sdlc `
-  --base main `
-  --head '<your-github-username>:fix/foundry-deployment-order'
-```
-
 After the pull request is merged upstream, synchronize your fork from a clean
 working tree:
-
-```powershell
-git fetch upstream
-git switch main
-git pull --ff-only origin main
-git merge --ff-only upstream/main
-git push origin main
-```
 
 These commands preserve the fork. If a fast-forward fails because the branches
 have diverged, stop and reconcile the history rather than force-pushing or
 resetting away fork-specific commits.
 
 ## 2. Check the required tools
-
-```powershell
-git --version
-gh --version
-$PSVersionTable.PSVersion
-dotnet --version
-az version --query '"azure-cli"' --output tsv
-az bicep version
-```
 
 `dotnet --version` must report `10.0.300` or a compatible later .NET 10 patch
 selected by [`global.json`](../global.json).
@@ -141,52 +91,14 @@ does not contact an npm registry.
 
 ## 3. Restore, test, and run locally
 
-```powershell
-dotnet restore SupportDesk.slnx `
-  --locked-mode
-
-dotnet test SupportDesk.slnx `
-  --configuration Release `
-  --no-restore
-
-dotnet run `
-  --project ./src/SupportDesk.App/SupportDesk.App.csproj
-```
-
 Open the HTTPS URL printed by ASP.NET Core. Confirm the ticket and knowledge
 workflows, then stop the local process with <kbd>Ctrl</kbd>+<kbd>C</kbd>.
 
 ## 4. Sign in and create the resource group
 
-```powershell
-az login
-az account set --subscription '<subscription-id>'
-
-$RESOURCE_GROUP = '<resource-group-name>'
-$LOCATION = '<azure-region>'
-
-az group create `
-  --name $RESOURCE_GROUP `
-  --location $LOCATION `
-  --query '{name:name,location:location}' `
-  --output table
-```
-
 Register the required resource providers:
 
-```powershell
-az provider register --namespace Microsoft.Web --wait
-az provider register --namespace Microsoft.OperationalInsights --wait
-az provider register --namespace Microsoft.Insights --wait
-az provider register --namespace Microsoft.CognitiveServices --wait
-```
-
 ## 5. Validate the infrastructure
-
-```powershell
-./infra/validate.ps1 `
-  -ResourceGroup $RESOURCE_GROUP
-```
 
 The script compiles [`infra/main.bicep`](../infra/main.bicep) and runs an Azure
 Resource Manager what-if without creating resources.
@@ -199,19 +111,8 @@ Resource Manager what-if without creating resources.
 
 ## 6. Deploy the application
 
-```powershell
-./infra/deploy.ps1 `
-  -ResourceGroup $RESOURCE_GROUP
-```
-
 Enter 2-5 letters when prompted. The script lowercases the initials and appends
 `01`; for example, `JRF` becomes `jrf01`. For non-interactive use:
-
-```powershell
-./infra/deploy.ps1 `
-  -ResourceGroup $RESOURCE_GROUP `
-  -Initials JRF
-```
 
 The script performs four visible stages:
 
@@ -277,19 +178,6 @@ Model usage can incur charges.
 application does not call the model in this foundation deployment, so the Web
 App identity is not granted Foundry access yet. A later application Task must
 request only the runtime RBAC needed to call the model.
-
-```powershell
-$WEB_APP = '<web-app-name>'
-$APPLICATION_URL = "https://$WEB_APP.azurewebsites.net"
-
-Invoke-RestMethod -Uri "$APPLICATION_URL/api/health"
-
-az webapp show `
-  --resource-group $RESOURCE_GROUP `
-  --name $WEB_APP `
-  --query '{name:name,state:state,host:defaultHostName,httpsOnly:httpsOnly}' `
-  --output table
-```
 
 The health response must be `{"status":"healthy"}`, the state must be `Running`,
 and `httpsOnly` must be `true`.
