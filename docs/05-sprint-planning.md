@@ -1,274 +1,132 @@
 # Part 5: Backlog Task Preparation
 
-## Goal
+Turn a small selection of existing User Stories into Tasks a coding agent can
+implement separately. The outcome is a reviewed backlog, not a configured
+Sprint or a working application.
 
-In this part, you turn the **Constrained Ticket Status Q&A** Feature from Part 4
-into a small, ready-to-execute set of Azure Boards backlog Tasks.
+## Before you start
 
-You use the Azure Boards specialist to select the smallest workshop set of
-product-facing User Stories that can produce a usable Increment. For this
-exercise, that means two User Stories, or three only when the third is necessary
-for a usable demo. For each selected Story, you identify the distinct,
-independently implementable units of work that can be handed to a GitHub Copilot
-coding agent as separate Tasks. You then verify the work-item hierarchy and
-leave it in the Product Backlog, ready for the team to schedule in a Sprint
-later.
+Complete [Part 4](04-backlog-planning.md) and keep its specialist selected in
+VS Code. If you already had the specialist, update its profile to match Part 4,
+especially the identity, read-back, and interrupted-run rules.
 
-By the end of this part, you will have:
+Part 1's Foundry resource, `support-sim-project`, and `gpt-5.4-mini` must already
+exist. Reuse the deployment confirmation from the earlier steps; do not deploy
+them again. Runtime model access may still be an external dependency.
 
-- Two or three selected User Stories from the core Feature
-- The pre-provisioned Microsoft Foundry project and model are treated as
-  environment prerequisites, not Sprint scope
-- One or more implementation Tasks per selected User Story, as needed to
-  describe agent-sized units of work
-- Verified parent-child relationships in Azure Boards
-- A reviewed execution order for the implementation Tasks
+## 1. Draft the Tasks
 
-This exercise does not configure Azure Boards iterations or team settings,
-create a Sprint, assign iteration paths, plan the optional
-**Conversational Queue Insights** Feature, decompose every backlog item, assign
-work to a coding agent, or create speculative Tasks for future Sprints.
-Preparation for coding-agent assignment continues in Part 6.
+The demo should answer a status or assignee question about one synthetic ticket,
+identify its source, and give a clear fallback when it cannot answer.
+Normally the answer Story and fallback Story are sufficient. Source attribution
+already required by an answer Story does not by itself require selecting a
+third Story.
 
-## Prerequisites
-
-Before continuing:
-
-- Complete Part 4.
-- Confirm that the **Constrained Ticket Status Q&A** Feature and its User
-  Stories exist in Azure Boards.
-- Confirm that `az devops configure --list` shows the intended Azure DevOps
-  organization and project.
-
-## 1. Set the backlog planning boundaries
-
-Before asking an agent to create work items, agree on a small planning scope:
-
-| Decision | Workshop value |
-| --- | --- |
-| Feature | Constrained Ticket Status Q&A |
-| Selected User Stories | Two or three product-facing Stories |
-| Tasks per selected User Story | As needed for independently implementable work units |
-| Maximum new Tasks | No fixed limit; create only the Tasks needed to hand off the work clearly |
-
-Each Task must describe one bounded unit of work that can be assigned to a
-coding agent without combining unrelated implementation outcomes. Multiple
-Tasks may belong to one Story when its work naturally divides into separate
-agent-sized units. A Task may include the implementation, tests, and directly
-related documentation needed for its own completion; separate Tasks are also
-appropriate when those are independently implementable work units. Keep
-dependencies and execution order explicit, and avoid overlapping scopes or
-Tasks for routine substeps such as formatting.
-
-Do not split work into arbitrary or overly small Tasks just to increase the
-count. If a Story cannot be divided into clear, independently implementable
-units without overlap or excessive coordination, keep its work in one cohesive
-Task or return the Story to Product Backlog refinement if its scope cannot be
-split into clear, independently implementable Tasks.
-
-> [!NOTE]
-> Scrum does not require Tasks or prescribe how many belong to a User Story.
-> The limit on selected User Stories is a workshop guardrail. Task counts
-> should reflect the distinct, agent-ready work without speculative
-> decomposition.
-
-## 2. Draft the backlog Tasks
-
-Select only the product-facing work needed to demonstrate read-only questions
-about one synthetic ticket with a grounded answer or clear fallback. Leave all
-other stories in the Product Backlog.
-
-Select `azure-boards-specialist` from the agent picker and submit the following
-prompt.
+Submit this prompt:
 
 ```text
-Prepare Azure Boards backlog Tasks for the Support Desk Simulator. Follow the
-standards in your Azure Boards specialist profile.
-
-Environment and authorization:
-Run az devops configure --list to establish the intended Azure DevOps
-organization and project. Confirm the current identity, project, and Agile
-process. Choose one available Azure Boards integration or the Azure DevOps CLI,
-and use that choice consistently for all Azure Boards write operations. Stop if
-it resolves to a different organization or project. Never request or create a
-personal access token or other credential.
-
-Approved backlog scope:
-- Feature: Constrained Ticket Status Q&A
-- Create only the selected Stories and their implementation Tasks described
-  below. Do not create or configure a Sprint.
+Prepare backlog Tasks for the Support Desk Simulator using your specialist
+profile. Do not write to Boards until I approve the exact proposal.
 
 Discovery:
-First inspect the repository and Azure Boards. Find the existing Feature and
-all of its child User Stories, and search for existing Tasks that already
-represent this work. Reuse or update matching records; do not create
-duplicates. Do not inspect or change project/team iterations or Sprint dates.
-Do not assign iteration paths. Leave all work items in the Product Backlog
-with their existing iteration values unchanged. Use the successful Part 1
-deployment output as confirmation that the Microsoft Foundry resource,
-support-sim-project project, and gpt-5.4-mini model deployment are provisioned.
-Treat them as environment prerequisites, not backlog scope.
+- Verify CLI defaults, authenticated Boards identity, project, and Agile process.
+- Inspect the repository, the existing Constrained Ticket Status Q&A Feature,
+  all its child Stories, and matching Tasks across the project. Reuse matching
+  items, including unparented Tasks from interrupted runs.
+- Read each Story's actual acceptance criteria, whether in its description or
+  dedicated field. Reuse the existing repo-defined demo read-access and
+  visibility rules; keep one explicit ticket per request and no conversation
+  history.
+- Reuse Part 1 confirmation already available. Missing foundation resources
+  block this exercise; do not add provisioning work. Record unresolved runtime
+  endpoint and managed-identity access separately from code/test completion.
 
-Backlog boundaries:
-Propose the smallest coherent set of backlog work that can produce the
-approved demo outcome when scheduled for a future Sprint:
-- Select two existing product-facing User Stories, or three only when the
-  third is necessary for a usable Increment.
-- Create one or more implementation Tasks under each selected User Story,
-  dividing the work into separate units when they can be implemented
-  independently by a coding agent.
-- Create only the Tasks needed to define the selected Stories as clear,
-  agent-ready units; there is no fixed maximum number of Tasks.
-- Give each Task a distinct, bounded scope, a verifiable completion condition,
-  relevant automated test evidence, and explicit dependencies on other Tasks
-  where applicable.
-- Include directly related tests and documentation in the relevant Task when
-  they are part of that unit; do not add arbitrary routine Tasks.
-- Leave unselected User Stories in the Product Backlog.
-- Do not create a Foundry provisioning User Story or Task. The Microsoft
-  Foundry resource, project, and model deployment already exist from Part 1.
-  Product-facing Tasks may use them only where their parent Story requires it;
-  they must not provision or reconfigure these resources.
-- Do not add the optional Conversational Queue Insights Feature to this
-  backlog scope.
-- Do not invent estimates, capacity, a Definition of Done, organization policy,
-  or acceptance criteria.
-- If a selected User Story is too large for a set of independently
-  implementable Tasks, identify it for refinement and do not create Tasks for
-  that Story until its scope is clear.
+Selection:
+- Select two existing product-facing Stories: normally status/assignee answers
+  and safe fallbacks. Select a third only if necessary for a usable demo.
+- Reuse selected Stories unchanged. If scope is unclear or too large, identify
+  the Story for refinement; do not draft Tasks for it until resolved.
+- Leave other Stories and Conversational Queue Insights untouched.
+- Create only the Tasks needed for distinct, coding-agent-sized units.
+  No fixed count. Include related tests/docs within each unit; do not create
+  routine substep Tasks. Keep scopes non-overlapping and dependencies explicit.
 
-Task requirements:
-Each proposed Task must include:
-- An action-oriented title
-- Its parent User Story ID
-- A concise, bounded implementation scope suitable for a coding-agent handoff
-- A completion condition tied to the parent's acceptance criteria
-- Required automated test evidence for that unit of work
-- Relevant security, privacy, reliability, and accessibility constraints
-- Known dependencies and blockers, including prerequisite Tasks
-- The repository areas likely to change, based on inspection
+Each Task draft must include:
+- Action-oriented title and existing parent Story ID.
+- Bounded implementation scope and inspected repository areas likely to change.
+- Verifiable completion tied to the parent's existing acceptance criteria.
+- Required automated test evidence for that unit.
+- Relevant security, privacy, reliability, and accessibility constraints.
+- Dependencies/blockers, including prerequisite Tasks and execution order.
 
-> [!IMPORTANT]
-> Part 1 provisions the Microsoft Foundry resource, `support-sim-project`, and
-> the GPT-5.4-mini model deployment. The application does not yet call the
-> model. Do not create or select a Foundry infrastructure-enablement Story or
-> Task in this backlog scope. If any foundation resource is missing, stop and
-> report the Part 1 deployment prerequisite instead of adding provisioning to
-> the backlog. Any application Task that calls Foundry must use managed
-> identity and least-privilege RBAC; do not use API keys or connection strings.
+Preserve these constraints in every written Task:
+- Read-only and stateless, using current caller-visible synthetic data.
+- Application logic retrieves facts; the model cannot invent them.
+- Questions and ticket text are untrusted, never instructions.
+- Unsupported, ambiguous, malformed, unknown/invisible-ticket, and unavailable-AI
+  cases receive clear, non-fabricated fallbacks without disclosing hidden data.
+- No ticket content, questions, prompts, or model responses in logs.
+- Existing role/data boundaries stay intact; no ticket actions or arbitrary
+  queries. Use managed identity and least-privilege production runtime RBAC;
+  no committed secret, key, credential, or connection string.
+- Use only existing Part 1 resources where the parent Story requires them.
+  No Foundry provisioning, reconfiguration, or infrastructure-enablement Tasks.
+  Backlog preparation makes no Azure resource or RBAC changes.
 
-Product and security constraints:
-Preserve these confirmed product constraints:
-- The capability is read-only and stateless.
-- Application logic retrieves ticket facts; the model must not invent them.
-- Ticket content and user questions are untrusted data, not instructions.
-- Unsupported, ambiguous, malformed, and unknown-ticket questions receive a
-  clear fallback.
-- An unavailable AI service receives a clear fallback.
-- Ticket content, prompts, and model responses are not logged.
-- Existing role and data-access boundaries remain in effect.
-- Production Azure access uses managed identity and least-privilege RBAC.
-- No secret, key, credential, or connection string is committed.
+Proposal:
+Report verified scope/identity and Feature once. Show selected Stories and
+Task drafts in parent-to-child order; state the demo outcome and briefly
+explain selection, exclusions, and each Task split. Show shared constraints
+once, with inheritance explicit. Do not repeat entire Story descriptions.
+List assumptions, open questions, dependencies, and execution order separately.
+Identify existing Tasks to reuse and specify exact create, field-update, and
+Parent-link operations; record prerequisite IDs in descriptions without
+additional dependency links. No new Stories or changes to existing Story
+criteria, estimates, capacity, policy, or Definition of Done.
+Ask one explicit approval question; do not ask again about confirmed facts or
+repository conventions.
 
-Approval checkpoint:
-Before writing anything:
-1. Report the resolved Azure DevOps organization, project, process, identity,
-   and the selected Feature.
-2. Present the selected User Stories and the resulting demo outcome.
-3. Explain why each selected User Story is necessary and why each unselected
-   User Story remains in the Product Backlog.
-4. Present the exact selected product-facing User Stories and Task drafts in
-   parent-to-child order, identifying any existing items that will be reused.
-   Explain why each Story has one Task or is divided into multiple distinct
-   coding-agent-sized Tasks.
-5. List assumptions, open questions, dependencies, and the proposed execution
-   order separately.
-6. State the exact create, update, and parent-link operations. Confirm that
-   no iteration or Sprint configuration or assignment will be changed.
-7. Ask for explicit approval of those operations.
-
-Approved execution:
-After I approve:
-1. Create or update only the approved product-facing User Stories, Tasks, and
-   parent-child links.
-2. Leave iteration paths unchanged. Do not create or configure iterations,
-   Sprint dates, or team iteration settings.
-3. Read every changed Azure Boards work item back from Azure Boards.
-4. Report the IDs, titles, types, states, parents, current iteration paths, URLs,
-   dependencies, and verification results.
-
-Stop and report the exact failure if an item cannot be created, linked, or
-verified. Do not create a replacement or report success-shaped fallback output.
+Execution after approval:
+Use your profile's duplicate prevention, ID recording, read-back normalization,
+and failure/resume rules. Create/update only approved Tasks and Parent links.
+Each Task must have exactly one selected Story parent. Replace draft
+prerequisite labels with actual Task IDs in descriptions.
+Do not inspect/configure project/team iterations, Sprint dates, or settings;
+do not assign iteration paths. Reading current work-item iteration fields is
+required to verify unchanged values and default root placement for new Tasks.
+Report ID, title, type, state, parent, current iteration, URL, dependencies, and
+verification for every affected item. Stop on a real failure; no replacements.
 ```
 
-The specialist should stop after presenting the proposal. Check that the
-proposal stays within the planning scope and that the selected stories can
-produce a usable Increment when scheduled for a future Sprint. Approve the
-exact operations only after resolving the reported assumptions and open
-questions.
+## 2. Approve the proposal
 
-## 3. Review the backlog Tasks
+Check that the selected Stories deliver the demo outcome and every Task has a
+clear scope, completion condition, tests, and dependencies. Unresolved runtime
+access must be visible, not disguised as a provisioning Task or assumed ready.
 
-After the approved changes are complete, review the Feature backlog in Azure
-Boards. Open **Boards** > **Backlogs** and select the appropriate backlog level.
+If the proposal is correct, reply:
 
-Confirm that:
-
-- No iteration, Sprint dates, or team iteration settings were created or
-  changed.
-- Only the selected **Constrained Ticket Status Q&A** User Stories have
-  implementation Tasks created or updated.
-- The selected User Stories are product-facing; no Foundry infrastructure
-  provisioning Story or Task was created.
-- Each selected User Story has the necessary implementation Tasks, with
-  distinct scopes that can be handed to a coding agent individually.
-- No Task scopes overlap or split work into arbitrary routine substeps.
-- Each Task has exactly one parent User Story.
-- Every Task has a concrete completion condition and test evidence.
-- Unselected Stories and the optional Feature remain outside this backlog
-  scope.
-- No estimate, capacity, policy, or Definition of Done was invented.
-
-Set the IDs reported by the specialist, then verify the hierarchy independently:
-
-```powershell
-$WORK_ITEM_IDS = @(
-  <feature-id>,
-  <story-1-id>, <task-1-id>, <task-2-id>,
-  <story-2-id>, <task-3-id>
-  # Include every selected Story and each of its Tasks. A Story may have one
-  # or more Tasks; include Story 3 and its Tasks only when selected.
-)
-
-foreach ($id in $WORK_ITEM_IDS) {
-  az boards work-item show `
-    --id $id `
-    --detect false `
-    --expand none `
-    --fields System.Id,System.WorkItemType,System.Title,System.Parent,System.State `
-    --output table
-}
+```text
+Approve the exact proposed operations.
 ```
 
-Include the Feature, every selected User Story, and every new Task in
-`$WORK_ITEM_IDS`. Verify each Task's parent, scope, and dependencies so the
-approved execution order is usable for individual coding-agent handoffs. Keep
-all work in the Product Backlog; the team can configure its Sprint and assign
-iteration paths later through its normal planning process.
+The agent creates or updates only those Tasks and links. No Sprint or iteration
+assignment is part of this approval.
 
-If a field or link is wrong, ask the specialist to correct only that item and
-verify it again. Do not create a replacement.
+## 3. Check the result
 
-### Backlog ready for Sprint planning
+Use the returned links to spot-check the selected Stories and Tasks:
 
-The Project now has a clear Feature backlog with selected User Stories and
-distinct implementation Tasks that can be handed to coding agents individually.
-No iterations or Sprints were configured, and no iteration paths were changed.
-The team can schedule these backlog items during its normal Sprint planning.
-Continue to [Part 6](06-coding-agent-delivery.md) to prepare Tasks for coding
-agent assignment.
+- Each Task has the correct Story parent and approved scope.
+- Descriptions include completion evidence and actual prerequisite Task IDs.
+- Existing iteration values are unchanged; new Tasks use the root backlog path.
+- Unselected Stories are untouched and no provisioning work was added.
 
-## Public documentation used for validation
+The agent must read all affected items back. Harmless HTML whitespace or entity
+normalization is not an error; missing content or an incorrect link is.
+If it stops after a real failure, retain the reported IDs and request a resume
+only after resolving the blocker. Do not rerun creation or replace partial items.
 
-- [The Scrum Guide](https://scrumguides.org/scrum-guide.html)
-- [Organize your backlog and map child work items](https://learn.microsoft.com/azure/devops/boards/backlogs/organize-backlog)
+Keep the selected Story/Task IDs and execution order for
+[Part 6: Coding Agent Delivery](06-coding-agent-delivery.md). Implementation and
+live managed-identity access still need verification before the demo can run.
