@@ -14,6 +14,10 @@ The deployment creates:
 - Log Analytics and workspace-based Application Insights
 - One Microsoft Foundry resource with the `support-sim-project` project
 - One GPT-5.4-mini `GlobalStandard` model deployment
+- A system-assigned App Service identity with the `Cognitive Services OpenAI User`
+  role on the Foundry account
+- The `StatusAssigneeInterpreter__Endpoint` Web App setting containing the
+  generated Foundry project endpoint
 
 There are no containers, registries, JavaScript packages, Node.js tools, npm
 manifests, or custom Azure roles.
@@ -159,25 +163,37 @@ Web App:           <web-app-name>
 Foundry resource:  <foundry-resource-name>
 Foundry project:   support-sim-project
 Model deployment:  gpt-5.4-mini
+Foundry endpoint:  https://<foundry-resource-name>.services.ai.azure.com/api/projects/support-sim-project/
 ```
 
-Save the environment name, Web App name, Foundry resource, project, and model
-deployment names. Parts 5 and 6 assume that the Microsoft Foundry resource,
-project, and model deployment already exist; they do not add infrastructure
+The deployment stack retains these outputs for later handoffs. The endpoint is
+also applied to the Web App as the nonsecret
+`StatusAssigneeInterpreter__Endpoint` setting; do not copy it into source code,
+GitHub secrets, or a task description as a hardcoded account name. Retrieve it
+again at any time with:
+
+```powershell
+az stack group show `
+  --resource-group $RESOURCE_GROUP `
+  --name "azstk$($environmentName)" `
+  --query 'outputs.{foundryEndpoint:foundryEndpoint.value,foundryResource:foundryResourceName.value,foundryProject:foundryProjectName.value,model:foundryModelDeploymentName.value}' `
+  --output table
+```
+
+Parts 5 and 6 use these existing outputs and do not add infrastructure
 provisioning work to the Sprint.
 
-The Foundry account and project each use their own system-assigned managed
-identity. The project identity must be explicitly configured; it does not
-inherit the account's identity. Local key authentication is disabled on the
-account. GPT-5.4-mini model version
+The App Service has a system-assigned managed identity. Part 1 grants that
+identity the least-privilege `Cognitive Services OpenAI User` role scoped to the
+Foundry account; the role assignment is part of the same Bicep deployment.
+Local key authentication is disabled on the account. GPT-5.4-mini model version
 `2026-03-17` is deployed as `GlobalStandard` with capacity 50 in the resource
 group's region (targeting 50,000 tokens per minute). Confirm that the model
 deployment is available and quota is approved for that region before
 deployment; ARM provisioning will fail if sufficient quota is unavailable.
 Model usage can incur charges.
-application does not call the model in this foundation deployment, so the Web
-App identity is not granted Foundry access yet. A later application Task must
-request only the runtime RBAC needed to call the model.
+The current application does not call the model yet. The endpoint setting and
+role are provisioned for the later application integration.
 
 The health response must be `{"status":"healthy"}`, the state must be `Running`,
 and `httpsOnly` must be `true`.
@@ -185,9 +201,8 @@ and `httpsOnly` must be `true`.
 ## Deployment complete
 
 The Blazor frontend and ASP.NET Core backend now run as one .NET App Service
-application. The Microsoft Foundry resource, project, and GPT-5.4-mini model
-are provisioned for later use; the application does not integrate with or call
-the model yet.
+application. The Microsoft Foundry resource, project, model deployment, runtime
+RBAC, and nonsecret endpoint setting are provisioned together.
 
 ## Public documentation used for validation
 

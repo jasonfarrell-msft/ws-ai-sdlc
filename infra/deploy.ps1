@@ -94,6 +94,10 @@ $foundryModelDeploymentName = Get-StackOutput `
     -ResourceGroup $ResourceGroup `
     -StackName $stackName `
     -OutputName foundryModelDeploymentName
+$foundryEndpoint = Get-StackOutput `
+    -ResourceGroup $ResourceGroup `
+    -StackName $stackName `
+    -OutputName foundryEndpoint
 
 function Test-ApplicationEndpoint {
     param(
@@ -252,6 +256,7 @@ Web App:           $webAppName
 Foundry resource:  $foundryResourceName
 Foundry project:   $foundryProjectName
 Model deployment:  $foundryModelDeploymentName
+Foundry endpoint:  $foundryEndpoint
 
 To remove only this generated environment:
 ./infra/destroy.ps1 -ResourceGroup '$ResourceGroup' -EnvironmentName '$environmentName' -ConfirmEnvironment '$environmentName'
