@@ -49,12 +49,12 @@ different number:
 
 | Order | Implementation unit | When to start |
 | --- | --- | --- |
-| 1 (Task 109 in this walkthrough) | Backend contracts, current-ticket retrieval, and grounded answers | Start here. |
-| 2 (Task 110 in this walkthrough) | Foundry question interpretation and model adapter | After the first Task's PR is reviewed and merged. |
-| 3 (Task 111 in this walkthrough) | Accessible question input, answer/source, and fallback UI | After the second Task's PR is reviewed and merged. |
+| First | Backend contracts, current-ticket retrieval, and grounded answers | Start here. |
+| Second | Foundry question interpretation and model adapter | After the first Task's PR is reviewed and merged. |
+| Third | Accessible question input, answer/source, and fallback UI | After the second Task's PR is reviewed and merged. |
 
-Use your own Task IDs and include all Tasks selected for this handoff. Both
-the adapter and UI in this example depend on the backend contract; the
+Use the Task IDs returned by Part 5 and include all Tasks selected for this
+handoff. Both the adapter and UI in this example depend on the backend contract; the
 sequential walkthrough also keeps review and integration simple. As with a
 human team, prerequisite relationships determine what can start next;
 numerical order is only a convenient walkthrough assumption.
