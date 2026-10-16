@@ -39,20 +39,25 @@ send to the coding agent and which to keep with people. Keep each Task as a
 separate handoff, and check for an existing linked PR or active agent session
 before starting work to avoid duplicate implementations.
 
-Use the prerequisite Task IDs in the descriptions to determine the order,
-not the order of items in the backlog. For the status/assignee decomposition,
-the expected sequence is:
+This walkthrough assumes Part 5 created Tasks in the order they should be
+completed. Work through your Tasks in ascending Task ID order, reviewing and
+merging each PR before starting the next. Check the recorded prerequisites
+first; if they conflict with numerical order, follow the prerequisites.
+
+In this example, Part 5 produced **three Tasks**; your backlog may have a
+different number:
 
 | Order | Implementation unit | When to start |
 | --- | --- | --- |
-| First | Backend contracts, current-ticket retrieval, and grounded answers | Start with this prerequisite Task. |
-| Next | Foundry question interpretation and model adapter | After the backend contract is merged into the selected base branch. |
-| Next | Accessible question input, answer/source, and fallback UI | After the backend contract is merged into the selected base branch. |
+| 1 (Task 109 in this walkthrough) | Backend contracts, current-ticket retrieval, and grounded answers | Start here. |
+| 2 (Task 110 in this walkthrough) | Foundry question interpretation and model adapter | After the first Task's PR is reviewed and merged. |
+| 3 (Task 111 in this walkthrough) | Accessible question input, answer/source, and fallback UI | After the second Task's PR is reviewed and merged. |
 
-The adapter and UI can proceed in parallel once their shared prerequisite is
-available; neither needs to wait for the other. Coordinate overlapping file
-changes and resolve conflicts during review. Follow the actual approved Task
-dependencies if your decomposition differs.
+Use your own Task IDs and include all Tasks selected for this handoff. Both
+the adapter and UI in this example depend on the backend contract; the
+sequential walkthrough also keeps review and integration simple. As with a
+human team, prerequisite relationships determine what can start next;
+numerical order is only a convenient walkthrough assumption.
 
 ## 2. Send the prerequisite Task to Copilot
 
@@ -66,11 +71,13 @@ dependencies if your decomposition differs.
    if both a fork and its parent repository are connected.
 4. Check the base branch. It must be the intended target for this Task's
    changes.
-5. Additional instructions are optional. Do not repeat the Task description
+5. In the model selector, choose **Auto** or any model available to your
+   account for this handoff.
+6. Additional instructions are optional. Do not repeat the Task description
    or use this field to expand the approved scope.
-6. Select **Create**. Copilot starts processing the work item and creates a
+7. Select **Create**. Copilot starts processing the work item and creates a
    linked draft pull request in GitHub.
-7. Open the linked PR to follow the agent's progress and inspect its changes.
+8. Open the linked PR to follow the agent's progress and inspect its changes.
 
 This action delegates the Task to Copilot; it does not require selecting a
 GitHub bot in Azure Boards' **Assigned To** field or changing its Sprint.
@@ -92,10 +99,11 @@ creating a duplicate Task.
    Task and verify that existing behavior and safe fallbacks are preserved.
 3. Complete the repository's required checks and human review, then merge
    the approved PR into the intended base branch.
-4. Open each dependent Task in Azure Boards and repeat Section 2. Confirm
-   that its selected base branch now contains the prerequisite changes.
-   For this demo, the model adapter and UI can now be handed off separately.
-5. Review and merge each resulting PR using the same process.
+4. Open the next Task in the verified order in Azure Boards and repeat
+   Section 2. Confirm that its selected base branch contains the merged
+   changes required by its prerequisites.
+5. Review and merge that PR before handing off the next Task. Repeat until
+   all selected Tasks have been addressed.
 
 Merging the prerequisite makes its code available to dependent agents;
 deployment is a separate concern. Each Task must retain its approved safe

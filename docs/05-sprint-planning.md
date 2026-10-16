@@ -30,6 +30,14 @@ of existing Stories that covers that outcome, rather than assuming particular
 Story titles or a fixed count. Source attribution already required by an answer
 Story does not by itself require selecting another Story.
 
+For this walkthrough, create new Tasks in the order they should be
+implemented: prerequisites first, then dependent work. Part 6 uses ascending
+Task IDs as a convenient handoff order and reviews and merges each PR before
+starting the next. There is no fixed Task count; three Tasks are an example,
+not a requirement. Reused Tasks may have older IDs, so recorded prerequisites
+always take precedence over numerical order. Do not recreate Tasks or invent
+dependencies just to obtain a numerical sequence.
+
 Submit this prompt:
 
 ```text
@@ -124,6 +132,10 @@ Tasks collectively fulfill each selected Story. Make backend, frontend, and
 agent/prompt ownership visible and explain how each Task can be deployed;
 neither Task completion nor deployment alone means the whole Story is complete.
 List assumptions, open questions, dependencies, and execution order separately.
+Specify a creation order for new Tasks that follows the proposed execution
+order across all selected Stories, with prerequisites before dependent Tasks.
+Independent Tasks may be placed in either order for the sequential walkthrough;
+do not add artificial dependencies between them.
 Identify existing Tasks to reuse and specify exact create, field-update, and
 Parent-link operations; record prerequisite IDs in descriptions without
 additional dependency links. No new Stories or changes to existing Story
@@ -136,6 +148,10 @@ Use your profile's duplicate prevention, ID recording, read-back normalization,
 and failure/resume rules. Create/update only approved Tasks and Parent links.
 Each Task must have exactly one selected Story parent. Replace draft
 prerequisite labels with actual Task IDs in descriptions.
+Create new Tasks in the approved creation order, preserving each Task's
+approved Story parent even when the sequence crosses Stories. Reuse existing
+Tasks without recreating them to change ID order; report any case where the
+recorded prerequisites require a different handoff order from ascending IDs.
 Do not inspect/configure project/team iterations, Sprint dates, or settings;
 do not assign iteration paths. Reading current work-item iteration fields is
 required to verify unchanged values and default root placement for new Tasks.
@@ -168,6 +184,8 @@ Use the returned links to spot-check the selected Stories and Tasks:
 
 - Each Task has the correct Story parent and approved scope.
 - Descriptions include completion evidence and actual prerequisite Task IDs.
+- New Tasks were created in the approved execution order. If reused IDs do
+  not follow that order, the reported handoff sequence follows prerequisites.
 - Each Task identifies its deployable change and safe integration with work
   that may not yet be deployed; Story completion is not a deployment gate.
 - Existing iteration values are unchanged; new Tasks use the root backlog path.
