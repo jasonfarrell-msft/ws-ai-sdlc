@@ -59,25 +59,40 @@ sequential walkthrough also keeps review and integration simple. As with a
 human team, prerequisite relationships determine what can start next;
 numerical order is only a convenient walkthrough assumption.
 
-## 2. Send the prerequisite Task to Copilot
+## 2. Do the work: send each Task to Copilot
 
-1. Open the prerequisite **Task** in Azure Boards, not its parent Story or
-   Feature. Check that its saved description includes the approved scope,
+1. Start with the **lowest Task ID** in the verified order from Section 1.
+   Open that **Task** in Azure Boards, not its parent Story or Feature.
+   Check that its saved description includes the approved scope,
    completion evidence, safeguards, and dependencies.
-2. Select the **Copilot** action in the Task details and choose **Create a
+2. Set **Assigned To** to the person responsible for the Task and set its
+   state to **Active** (in progress). Save the Task.
+3. Select the **Copilot** action in the Task details and choose **Create a
    pull request with Copilot**.
-3. Under **GitHub repository**, select the connected repository where the
+4. Under **GitHub repository**, select the connected repository where the
    implementation belongs. Verify the owner and repository name, especially
    if both a fork and its parent repository are connected.
-4. Check the base branch. It must be the intended target for this Task's
-   changes.
-5. In the model selector, choose **Auto** or any model available to your
+5. Check the base branch. For this walkthrough, use **`main`**, the connected
+   repository's default branch. Automatic Task closure requires merging into
+   the repository's default branch.
+6. In the model selector, choose **Auto** or a specific model available to your
    account for this handoff.
-6. Additional instructions are optional. Do not repeat the Task description
-   or use this field to expand the approved scope.
-7. Select **Create**. Copilot starts processing the work item and creates a
-   linked draft pull request in GitHub.
-8. Open the linked PR to follow the agent's progress and inspect its changes.
+7. In **additional instructions**, paste the following, replacing
+   `<TASK_ID>` with this Task's actual ID:
+
+   ```text
+   Include the following standalone line in the pull request description:
+   Closed AB#<TASK_ID>
+   Reference only this Task for automatic closure; do not close its parent Story.
+   ```
+
+   Do not expand the approved scope. A plain `AB#<TASK_ID>` reference links
+   the work item but does not request a state change.
+8. Select **Create**. Monitor the coding agent in GitHub's **Agents** tab.
+   The linked PR remains in **draft** mode when the agent finishes; it still
+   needs human review before merging.
+9. Open the PR and verify that its description contains the standalone
+   `Closed AB#<TASK_ID>` line with the correct ID. Add it if missing.
 
 This action delegates the Task to Copilot; it does not require selecting a
 GitHub bot in Azure Boards' **Assigned To** field or changing its Sprint.
@@ -92,18 +107,24 @@ creating a duplicate Task.
 
 ## 3. Review and merge before starting dependent work
 
-1. Review the prerequisite Task's PR against its scope and parent Story's
+1. Review the current Task's PR against its scope and parent Story's
    criteria. Inspect the code and test evidence; a draft PR is evidence of
    work underway, not completion.
 2. Request corrections in the PR when needed. Keep changes focused on that
    Task and verify that existing behavior and safe fallbacks are preserved.
-3. Complete the repository's required checks and human review, then merge
-   the approved PR into the intended base branch.
-4. Open the next Task in the verified order in Azure Boards and repeat
-   Section 2. Confirm that its selected base branch contains the merged
-   changes required by its prerequisites.
-5. Review and merge that PR before handing off the next Task. Repeat until
-   all selected Tasks have been addressed.
+3. Confirm the Task's completion requirements are met and the closure line
+   names only that Task. Mark the draft PR **Ready for review**, complete the
+   repository's required checks and human review, then merge into **`main`**.
+4. Verify that Azure Boards changes the Task to **Closed**. In GitHub's
+   **Actions** tab, open the merged commit's **Validate and deploy** run and
+   confirm the **Deploy application** job succeeds, including any required
+   environment approval. PR checks alone do not prove deployment. If closure
+   or deployment fails, investigate before proceeding.
+5. Open the next Task in the verified order and repeat Section 2, including
+   assigning a person and setting the Task to **Active**. Confirm its base
+   branch contains the merged prerequisite changes. Repeat the handoff,
+   review, merge, closure, and deployment checks until **all selected Tasks
+   are complete and all corresponding Actions deployments have succeeded**.
 
 Merging the prerequisite makes its code available to dependent agents;
 deployment is a separate concern. Each Task must retain its approved safe
@@ -114,6 +135,9 @@ establish live Foundry access.
 ## 4. Verify the combined result
 
 - Confirm each PR is linked to the intended Task and stays within its scope.
+- Confirm every selected Task is Closed and each corresponding post-merge
+  Actions deployment succeeded. Automatic Task closure occurs on merge; it
+  does not wait for deployment or prove that deployment succeeded.
 - Verify the combined status/assignee interaction, exact source ticket ID,
   and clear fallbacks against the selected Stories' existing criteria.
 - Keep code/test evidence separate from live runtime evidence. Endpoint
