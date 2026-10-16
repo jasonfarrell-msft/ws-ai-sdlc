@@ -27,12 +27,14 @@ The Bicep deployment creates:
 
 - One Basic B1 Linux App Service Plan with one instance
 - One code-based .NET 10 Web App with HTTPS-only ingress and WebSockets
-- A system-assigned managed identity for future Azure service access
+- A system-assigned managed identity with Foundry model inference access
 - A Log Analytics workspace with 30-day retention
 - Workspace-based Application Insights
 - One Microsoft Foundry resource with the `support-sim-project` project
 - One GPT-5.4-mini `GlobalStandard` model deployment with capacity 50
   (targeting 50,000 tokens per minute, subject to available quota)
+- A nonsecret `StatusAssigneeInterpreter__Endpoint` Web App setting derived from
+  the generated Foundry account and project
 - App Service health checks against `/api/health`
 - FTP publishing disabled and TLS 1.2 or newer required
 
@@ -62,8 +64,9 @@ only on the generated Web App.
   and `main` branch policy.
 - Pull request jobs receive no Azure OIDC permission.
 - One Basic B1 instance matches the process-local demo store.
-- The Foundry resource disables local key authentication. Its model deployment
-  is provisioned for later use and is not called by the application.
+- The Foundry resource disables local key authentication. The Web App identity
+  receives the account-scoped `Cognitive Services OpenAI User` role, and the
+  model endpoint is retained as a deployment-stack output for later handoffs.
 - Foundry model usage can incur charges. Confirm regional availability and
   quota for the resource group's region before provisioning.
 - App Service compute and log ingestion can incur charges.

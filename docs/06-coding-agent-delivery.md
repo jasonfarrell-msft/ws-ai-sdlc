@@ -25,10 +25,13 @@ in each Task; there is no separate instruction-update exercise.
   [Part 3](03-azure-devops-setup.md), including any required application
   permission approval.
 - Reuse the saved Part 1 confirmation for the existing Foundry resource,
-  `support-sim-project`, and `gpt-5.4-mini`. Runtime endpoint and
-  managed-identity access may still be separate dependencies.
+  `support-sim-project`, `gpt-5.4-mini`, and the deployed nonsecret runtime
+  endpoint setting. The App Service identity has least-privilege model access.
 
 > [!NOTE]
+> Part 1 provisions the Foundry resource, model, runtime role assignment, and
+> nonsecret endpoint setting. The deployment stack's `foundryEndpoint` output
+> is the source of truth; do not hardcode an environment-specific account name.
 > The GitHub Actions identity remains limited to deploying the Web App. Do not
 > expand its Azure access or add Foundry provisioning to the workflow.
 
