@@ -89,26 +89,6 @@ az group create `
   --output table
 ```
 
-Replace the sample resource group, region, and initials with your own values.
-Initials must be 2-5 letters. The deployment creates an environment name by
-lowercasing the initials and adding `01` (for example, `JRF` becomes `jrf01`).
-
-Register the providers used by the deployment:
-
-```powershell
-$providers = @(
-  "Microsoft.Resources",
-  "Microsoft.Authorization",
-  "Microsoft.Web",
-  "Microsoft.OperationalInsights",
-  "Microsoft.Insights",
-  "Microsoft.CognitiveServices"
-)
-foreach ($provider in $providers) {
-  az provider register --namespace $provider --wait --output none
-}
-```
-
 ## 4. Validate the infrastructure
 
 This compiles the Bicep template and shows the planned Azure changes without
@@ -165,15 +145,3 @@ The health response must be `{"status":"healthy"}`; the Web App state must be
 `Running` and `httpsOnly` must be `true`. Keep the resource group and deployment
 outputs for Parts 2-6. The Foundry endpoint is a nonsecret resource identifier;
 do not hardcode it in source code.
-
-## Remove the environment
-
-When you no longer need the deployment, remove its stack-managed resources.
-This preserves the resource group:
-
-```powershell
-./infra/destroy.ps1 `
-  -ResourceGroup $resourceGroup `
-  -EnvironmentName $environmentName `
-  -ConfirmEnvironment $environmentName
-```
