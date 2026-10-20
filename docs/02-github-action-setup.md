@@ -26,9 +26,14 @@ Sign in and confirm that GitHub CLI can access your fork:
 ```powershell
 gh auth login
 gh auth status
-$repository = gh repo view --json nameWithOwner --jq '.nameWithOwner'
+$githubUser = gh api user --jq '.login'
+$repository = "$githubUser/ws-ai-sdlc"
+gh repo set-default $repository
 gh repo view $repository --json nameWithOwner,isFork,parent
 ```
+
+`nameWithOwner` must be your fork, `isFork` must be `true`, and `parent` must be
+`jasonfarrell-msft/ws-ai-sdlc`.
 
 Sign in to the Azure subscription used in Part 1:
 
