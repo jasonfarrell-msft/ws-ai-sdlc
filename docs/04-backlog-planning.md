@@ -15,15 +15,9 @@ work items. This part creates no Tasks or Sprints.
 
 The profile is included at
 [`.github/agents/azure-boards-specialist.agent.md`](../.github/agents/azure-boards-specialist.agent.md).
-Open and review it:
-
-```powershell
-$profilePath = ".github/agents/azure-boards-specialist.agent.md"
-if (-not (Test-Path $profilePath)) {
-  throw "Missing $profilePath. Sync your fork with the latest workshop main."
-}
-code $profilePath
-```
+Open it in any text editor ([Visual Studio Code](https://code.visualstudio.com/)
+is recommended) and review it. If the file is missing, sync your fork with the
+latest workshop `main`.
 
 In Copilot Chat, select **azure-boards-specialist**. If it does not appear,
 reload VS Code.
