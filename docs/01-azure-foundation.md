@@ -67,6 +67,13 @@ Open a new PowerShell terminal, then install Bicep:
 
 ## 1. Fork and clone the repository
 
+From the directory where you want the repository cloned, run:
+
+```powershell
+gh repo fork jasonfarrell-msft/ws-ai-sdlc --clone
+Set-Location ws-ai-sdlc
+```
+
 Confirm that the repository is your fork:
 
 `isFork` and `admin` must be `true`, and `upstream` must be
