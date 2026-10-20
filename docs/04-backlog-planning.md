@@ -13,18 +13,13 @@ work items. This part creates no Tasks or Sprints.
 
 ## 1. Open the Azure Boards specialist
 
-The profile is included at
-[`.github/agents/azure-boards-specialist.agent.md`](../.github/agents/azure-boards-specialist.agent.md).
-Open it in any text editor ([Visual Studio Code](https://code.visualstudio.com/)
-is recommended) and review it. If the file is missing, sync your fork with the
-latest workshop `main`.
-
-In Copilot Chat, select **azure-boards-specialist**. If it does not appear,
-reload VS Code.
+Open
+[`.github/agents/azure-boards-specialist.agent.md`](../.github/agents/azure-boards-specialist.agent.md) in any text editor ([Visual Studio Code](https://code.visualstudio.com/)
+is recommended) and review it.
 
 ## 2. Draft the product backlog
 
-Submit this prompt to the specialist:
+Submit this prompt to the azure-boards-specialist agent:
 
 ```text
 Prepare the Support Desk Simulator product backlog using your profile.
