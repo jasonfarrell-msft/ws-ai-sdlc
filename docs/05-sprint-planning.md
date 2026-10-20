@@ -8,8 +8,6 @@ configure a Sprint, deploy the application, or create a working feature.
 
 - Complete [Part 4](04-backlog-planning.md). Keep the Azure Boards specialist
   selected in Copilot Chat.
-- Confirm that Part 1 created Foundry, `support-sim-project`, and
-  `gpt-5.4-mini`. Do not redeploy or add provisioning work here.
 - Keep the approved Feature and Story IDs from Part 4.
 
 ## 1. Prepare the Task proposal
