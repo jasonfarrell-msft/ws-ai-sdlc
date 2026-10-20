@@ -25,7 +25,7 @@ configures the Azure DevOps CLI for later workshop parts.
 Set your Azure DevOps organization URL and project name:
 
 ```powershell
-$AZURE_DEVOPS_ORG = "https://dev.azure.com/<organization-name>"
+$AZURE_DEVOPS_ORGANIZATION = "https://dev.azure.com/<organization-name>"
 $AZURE_DEVOPS_PROJECT = "Support-Sim"
 ```
 
@@ -62,39 +62,13 @@ organization:
 az login
 ```
 
-If the browser cannot open, use device-code sign-in:
-
-```powershell
-az login --use-device-code
-```
-
-If your account belongs to more than one tenant, sign in to the tenant that
-contains the Azure DevOps organization:
-
-```powershell
-$tenantId = "<your-tenant-id>"
-az login --tenant $tenantId
-```
-
-Check that the CLI can reach the organization:
-
-```powershell
-az devops project list `
-  --organization $AZURE_DEVOPS_ORG `
-  --output table
-```
-
-The list may be empty, but the command must not return an authentication or
-authorization error. Do not run `az devops login`; it configures PAT
-authentication.
-
 ## 4. Create the Azure DevOps project
 
 Check whether the project name is already in use:
 
 ```powershell
 az devops project list `
-  --organization $AZURE_DEVOPS_ORG `
+  --organization $AZURE_DEVOPS_ORGANIZATION `
   --output table
 ```
 
@@ -103,7 +77,7 @@ Create a private project using the Agile process:
 ```powershell
 az devops project create `
   --name $AZURE_DEVOPS_PROJECT `
-  --organization $AZURE_DEVOPS_ORG `
+  --organization $AZURE_DEVOPS_ORGANIZATION `
   --process Agile `
   --visibility private `
   --source-control git `
@@ -120,7 +94,7 @@ Set the organization and project defaults:
 
 ```powershell
 az devops configure --defaults `
-  "organization=$AZURE_DEVOPS_ORG" `
+  "organization=$AZURE_DEVOPS_ORGANIZATION" `
   "project=$AZURE_DEVOPS_PROJECT"
 ```
 
@@ -129,7 +103,7 @@ Verify the defaults and project:
 ```powershell
 az devops configure --list
 az devops project show `
-  --organization $AZURE_DEVOPS_ORG `
+  --organization $AZURE_DEVOPS_ORGANIZATION `
   --project $AZURE_DEVOPS_PROJECT `
   --output table
 ```
@@ -144,7 +118,7 @@ Open the Azure DevOps project:
 
 ```powershell
 az devops project show `
-  --organization $AZURE_DEVOPS_ORG `
+  --organization $AZURE_DEVOPS_ORGANIZATION `
   --project $AZURE_DEVOPS_PROJECT `
   --open
 ```
