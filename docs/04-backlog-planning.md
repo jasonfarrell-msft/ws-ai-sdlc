@@ -1,258 +1,111 @@
-# Part 4: Backlog Planning
+# Part 4: Plan the Product Backlog
 
-Create an Azure Boards specialist, then use it to prepare the product backlog.
-The agent proposes changes; you approve them before it writes to Azure Boards.
-This part creates no Tasks or Sprints.
+Use the Azure Boards specialist included in the repository to propose the
+product backlog. Review and approve its proposal before it creates or updates
+work items. This part creates no Tasks or Sprints.
 
 ## Before you start
 
-Complete [Part 3](03-azure-devops-setup.md) and open your fork in VS Code.
-Part 1 must have completed successfully: it provisions Microsoft Foundry,
-`support-sim-project`, and `gpt-5.4-mini`. Application access to the model is
-separate and may still need authorization.
+- Complete [Part 3](03-azure-devops-setup.md) and open your fork in VS Code.
+- Confirm that Part 1 created Microsoft Foundry, `support-sim-project`, and
+  `gpt-5.4-mini`. If a resource is missing, stop and resolve Part 1; do not add
+  provisioning work to the backlog.
 
-## 1. Create the specialist
+## 1. Open the Azure Boards specialist
 
-A custom agent is a saved set of instructions for Copilot. This one uses the
-Azure Boards Agile hierarchy: **Epic > Feature > User Story > Task**.
-Scrum does not require that hierarchy; it is how this workshop organizes work.
+The profile is included at
+[`.github/agents/azure-boards-specialist.agent.md`](../.github/agents/azure-boards-specialist.agent.md).
+Open and review it:
 
-Create the profile folder:
-
-Create `.github/agents/azure-boards-specialist.agent.md` with this content.
-If the profile already exists, review and update it rather than creating a
-second agent. Preserve any documented team requirements.
-
-```markdown
----
-name: azure-boards-specialist
-description: Prepares and reviews Azure Boards backlog items and coding-agent Tasks.
----
-
-You are the team's Azure Boards specialist. Use the Agile hierarchy
-Epic > Feature > User Story > Task. Keep product decisions with the Product
-Owner and scheduling with the team. Do not invent team policy, estimates,
-capacity, a Definition of Done, or product requirements.
-
-## Scrum and team delivery conventions
-
-Scrum does not prescribe the Azure Boards hierarchy or Task-level deployment.
-These are this team's delivery conventions: Features define complete intended
-experiences, Stories define bounded acceptable components, and Tasks are
-tangible implementation and deployment units. A deployed Task does not
-automatically make its Story or a Scrum Increment Done; the team's existing
-Definition of Done still applies. Neither Story completion nor the Sprint
-Review is a release gate. Do not invent or weaken the Definition of Done.
-
-## Discover before asking
-
-- Inspect the repository and existing work items first. Reuse matching items,
-  including unparented items left by an interrupted run; never duplicate them.
-- Read acceptance criteria from both the dedicated field and the description.
-- Resolve implementation details from repository conventions. Derive existing
-  role and data-access rules from the repository and existing work items, and
-  preserve them unless the user explicitly changes scope. Do not ask the user
-  to restate them.
-- Reuse facts and approvals already in the conversation. Ask only when missing
-  information blocks a safe proposal or changes product scope or access.
-  Otherwise record the dependency and continue drafting.
-- Completed Part 1 confirms the existing Foundry resource, support-sim-project,
-  and gpt-5.4-mini. Reuse its saved output or the user's existing confirmation;
-  do not ask for resource names solely to draft backlog work. Documentation
-  examples are not deployment evidence. If confirmation is absent, ask once
-  for saved output or a resource group for a scoped, read-only check.
-- If a foundation resource is missing, report the Part 1 prerequisite and stop.
-  Do not create provisioning work. Endpoint configuration and managed-identity
-  runtime permission are separate application dependencies, not proof of
-  missing infrastructure. Keep external access checks separate from code/test
-  completion; do not change Azure resources or RBAC while planning.
-
-## Verify the target
-
-- Run az devops configure --list. Its organization and project are the intended
-  scope. Verify the project and Agile process before proposing changes.
-- Use the Azure DevOps CLI for writes unless the user selects a configured
-  Boards integration. Keep one write tool throughout the change set and pass
-  the verified organization/project explicitly wherever supported.
-- Verify the authenticated and authorized Azure DevOps identity through the
-  chosen tool's authenticated connection. az account show alone is not proof
-  of the Boards identity. For CLI reads, use the installed authenticated
-  client/SDK connection-data helper (get_connection_data); do not guess
-  az devops invoke endpoints or retry Profile/location resource combinations.
-- Use existing authentication. Never request, retrieve, display, or create
-  tokens or credentials. If identity cannot be verified, report the blocker.
-- Stop on a scope mismatch. Do not inspect or change project/team iteration
-  configuration, Sprint dates, or team settings. Reading a work item's
-  System.IterationPath field for verification is allowed. Never assign or
-  update iteration paths; preserve existing values.
-
-## Work item quality
-
-- Epic: outcome-oriented title, problem/users/value, measurable success,
-  boundaries, risks, and dependencies.
-- Feature: one parent Epic, demonstrable capability/value, observable
-  acceptance criteria, constraints, and a path to User Stories. Define the
-  complete intended experience at this level; the Stories collectively must
-  fulfill the Feature.
-- User Story: one parent Feature; "As a <user>, I want <capability>, so that
-  <value>"; observable Given/When/Then criteria; relevant rules and dependencies.
-  Define a bounded, acceptable component of the Feature's experience, not the
-  entire experience or an arbitrary implementation layer. Story completion
-  means all necessary work and acceptance criteria are satisfied; it is not
-  a deployment event or a release gate.
-- Task: one parent Story, action-oriented title, bounded implementation scope,
-  completion tied to existing Story criteria, automated test evidence, relevant
-  security/privacy/reliability/accessibility constraints, dependencies with
-  prerequisite Task IDs, and inspected repository areas likely to change.
-  Each Task is a tangible unit of implementation and deployment. Its change
-  must be deployable while preserving existing behavior, even if the Story's
-  capability is not yet fully available. Tasks may separate backend, frontend,
-  and agent/prompt work when these are meaningful deployable units. They do
-  not each have to fulfill the whole Story. Define interfaces, prerequisites,
-  and safe coexistence with incomplete work; do not defer all deployment until
-  Story completion. Test doubles do not prove live integration or eliminate
-  deployment prerequisites.
-- Derive criteria from supplied product requirements; do not add new behavior.
-  Do not rewrite approved criteria without explicit approval. Include related
-  tests and documentation in the implementation Task unless independently
-  implementable. Avoid routine substep Tasks. Flag unclear Stories for
-  refinement rather than guessing their scope.
-
-## Propose, approve, execute
-
-- Present one concise proposal: verified scope/process/identity; hierarchy and
-  exact item drafts in parent-to-child order; existing items reused; and exact
-  create, field-update, and parent-link operations. Unchanged reuse is not a
-  field update. Show shared constraints once, but make written items
-  self-contained. Avoid repeating entire parent descriptions in the proposal.
-- List assumptions, open questions, dependencies, and execution order
-  separately and briefly. Do not invent unresolved decisions just to ask
-  questions. Request one explicit approval before any writes.
-- Before execution, recheck scope, identity, duplicates, and affected items.
-  If approval no longer matches current content, stop for review.
-- Perform only approved operations. Record each returned ID immediately in
-  session storage outside the repository. Read each created item back, add
-  its approved Parent link, and read it back again. Read updated items back too.
-- Verify substantive fields, complete content, parent links, dependencies, and
-  current iteration values. Compare normalized HTML structure and decoded text,
-  ignoring harmless inter-element whitespace and entity serialization.
-  Formatting normalization is not a failure; changed wording or links are.
-- Use returned item URLs; do not assume CLI JSON includes _links.html.
-  A browser link may be built from the verified organization/project/item ID.
-- Confirm each new item kept the default root backlog iteration path. If a new
-  item's System.IterationPath is not that root path, stop and report it; do
-  not repair it by assigning an iteration.
-- Report one compact results table: ID, title, type, state, parent, current
-  iteration, URL, dependencies, and verification. Do not claim implementation
-  or demo readiness merely because backlog items exist.
-- On an actual create/link/verification failure, stop and report the exact
-  failure, existing IDs, and remaining operations. Do not create replacements
-  or retry an uncertain create. On an explicitly requested resume, read and
-  reuse the recorded items before completing the remaining approved operations.
-
-## Later GitHub handoff
-
-Only when explicitly requested, create at most one issue per approved Task,
-with Task and Story AB# references, scope, criteria, constraints, and evidence.
-Keep handoffs separate, require focused pull requests, and verify each issue.
-Do not create code, branches, pull requests, or assignments while planning.
-Do not represent a GitHub bot as the Azure Boards assignee.
+```powershell
+$profilePath = ".github/agents/azure-boards-specialist.agent.md"
+if (-not (Test-Path $profilePath)) {
+  throw "Missing $profilePath. Sync your fork with the latest workshop main."
+}
+code $profilePath
 ```
 
-Select **azure-boards-specialist** in the agent picker. If it does not appear,
-reload VS Code. You can use the next prompt to verify the profile and draft
-the backlog in the same step.
+In Copilot Chat, select **azure-boards-specialist**. If it does not appear,
+reload VS Code.
 
 ## 2. Draft the product backlog
-
-The core Feature answers questions about one ticket. The optional Feature
-answers questions across the queue; it stays outside the later coding exercise.
-The Feature defines the complete intended experience. Its Stories are bounded,
-acceptable components that collectively fulfill it. Part 5 decomposes selected
-Stories into tangible, deployable Tasks; a Story is not a deployment gate.
 
 Submit this prompt to the specialist:
 
 ```text
 Prepare the Support Desk Simulator product backlog using your profile.
-Inspect the repository and Boards; reuse existing items without duplicates.
-Verify CLI defaults, the authenticated Boards identity, project, and Agile
-process. Present a proposal before any writes.
+Inspect the repository and Azure Boards. Verify the configured organization,
+project, Agile process, and authenticated Boards identity. Reuse existing
+matching items; do not create duplicates. Do not write anything until I approve
+the exact proposal.
 
-Use this hierarchy:
+Propose this hierarchy:
 - Epic: Conversational Ticket Insights
 - Core Feature: Constrained Ticket Status Q&A
-  Read-only, single-turn status, assignee, priority, and product questions
-  about one explicitly identified ticket. Answer from current caller-visible
-  data and identify the source ticket. The complete experience includes an
-  accessible interaction in the existing application to submit the ticket ID
-  and question and view an answer/source or a clear fallback.
 - Optional Feature: Conversational Queue Insights
-  Constrained counts by status, filtered lists, unassigned counts, product
-  comparisons, and status summaries. Application logic performs calculations;
-  empty results receive a clear response.
 
-For both Features:
-- Use synthetic data only. Preserve existing role and data-access boundaries.
-- Keep requests stateless; no conversation history, ticket mutations,
-  assignment, status changes, arbitrary queries, or automatic resolution.
-- Application logic retrieves facts; the model must not invent them.
-- Treat questions and ticket text as untrusted data, not instructions.
-- Provide clear fallbacks for unsupported, ambiguous, malformed, unknown-ticket,
-  and unavailable-AI cases. Do not log ticket content, questions, prompts, or
-  model responses.
-- Use only Part 1's existing Foundry resource, support-sim-project, and
-  gpt-5.4-mini. No provisioning work. Record runtime connection, managed-identity
-  least-privilege access, usage limits, and monitoring as dependencies where
-  unresolved; do not invent thresholds. No keys or connection strings.
+The core Feature answers read-only, single-turn questions about the status,
+assignee, priority, or product of one explicitly identified ticket. The
+complete experience includes an accessible interaction in the existing
+application, a grounded answer, its source ticket, and a clear fallback.
 
-Propose the product-facing Stories needed to fulfill each Feature; do not force
-a fixed count. Each Story must define a bounded, acceptable component of the
-experience with observable acceptance criteria, not the entire Feature or a
-backend/frontend/agent implementation layer.
+The optional Feature answers constrained questions across the queue, such as
+counts by status, filtered lists, unassigned counts, product comparisons, and
+status summaries. Application logic calculates the results; empty results
+receive a clear response. Keep this Feature outside the later coding exercise.
 
-For the core Feature, make application interaction, grounded AI-assisted
-answers, source presentation, and safe fallback behavior explicit in the
-Feature criteria and covered by the Stories. Include labeled, keyboard-operable
-controls and explicit result/error feedback where relevant. Do not assume an
-API-only capability satisfies an application interaction requirement. Keep the
-model's role constrained: application logic retrieves facts; the model cannot
-invent ticket facts or take actions. Do not prescribe a hosted-agent architecture.
+Use only synthetic data and preserve existing caller roles and data-access
+rules. Keep requests stateless. Do not add conversation history, ticket
+mutations, arbitrary queries, automatic resolution, or hosted-agent
+provisioning. Application logic retrieves facts; the model must not invent
+them. Treat questions and ticket text as untrusted input. Provide clear
+fallbacks for unsupported, ambiguous, malformed, unknown-ticket, and
+unavailable-AI cases. Do not log ticket content, questions, prompts, or model
+responses.
 
-Derive measurable success indicators and observable acceptance criteria from
-these requirements. Show which Feature criteria each Story covers and check
-that fulfilling all Stories would fulfill the Feature without gaps or redundant
-scope. Keep Stories small enough to discuss and estimate; do not combine the
-whole experience into one oversized Story. Apply your profile's item-quality rules.
-No Tasks, implementation designs, estimates, assignments, or Sprint setup.
+Use only the existing Part 1 Foundry resource, support-sim-project, and
+gpt-5.4-mini. Do not add provisioning work or change Azure resources or RBAC.
+Record unresolved runtime endpoint, managed-identity access, usage limits, and
+monitoring as dependencies; do not invent thresholds, keys, or connection
+strings.
 
-Show the exact hierarchy/drafts and create/update/Parent-link operations;
-identify reused items. Keep assumptions, open questions, and dependencies
-brief and separate. Ask for one explicit approval.
+Propose the product-facing Stories needed to fulfill each Feature. Do not
+assume a fixed Story count. Each Story must be a bounded, acceptable component
+with observable acceptance criteria. For the core Feature, make the
+application interaction, grounded answer, source, and fallback requirements
+explicit and covered. Do not treat an API-only capability as an application
+interaction or prescribe a particular hosted-agent architecture.
 
-After approval, execute only those operations, verify each item and link by
-read-back, and report IDs and URLs using your profile's verification rules.
-Leave existing iteration values unchanged; do not assign new iteration paths.
+Show how each Story covers Feature criteria and how all Stories together
+fulfill each Feature without gaps or duplicate scope. Derive measurable success
+indicators from these requirements. Do not invent requirements or rewrite
+existing approved criteria. No Tasks, implementation designs, estimates,
+assignments, or Sprint setup.
+
+List existing items to reuse and the exact create, field-update, and Parent-link
+operations. Keep assumptions, open questions, dependencies, and execution
+order brief. Ask for one explicit approval. After approval, perform only the
+approved operations, read each item and link back for verification, leave
+iteration values unchanged, and report IDs and URLs using your profile's
+verification rules.
 ```
 
-## 3. Approve and check
+## 3. Review and approve the proposal
 
-Review the proposal for product scope, testable criteria, and correct reuse
-of existing items. Check that each Story is an acceptable chunk of the Feature
-and that the Stories collectively cover its complete experience, including the
-core application's interaction and AI behavior. Story completion must not be
-treated as the point at which all implementation work is deployed. If it
-matches your intent, reply:
+Check the hierarchy, Story scope, measurable criteria, reuse of existing items,
+and Feature-to-Story coverage. Confirm that the core Stories include the
+accessible application interaction, grounded answer, source, and fallbacks.
+If the proposal matches your intent, reply:
 
 ```text
 Approve the exact proposed operations.
 ```
 
-After execution, use the returned links to spot-check the Epic, both Features,
-and their Stories. Every Feature must have the Epic as its parent; every Story
-must have one Feature parent. The agent's report must show read-back results,
-not just successful create commands.
+After execution, use the returned links to verify that each Feature has the
+Epic as its parent and each Story has one Feature parent. Confirm the specialist
+read each item and link back, and that existing iteration values were not
+changed. Keep the item IDs for Part 5. If execution stops, resolve the reported
+problem and ask the specialist to resume with its recorded IDs; do not recreate
+items.
 
-Keep the reported IDs for later parts. If execution stops, resolve the reported
-problem and ask the agent to resume using the existing IDs, not replacements.
 Continue to [Part 5: Backlog Task Preparation](05-sprint-planning.md).
