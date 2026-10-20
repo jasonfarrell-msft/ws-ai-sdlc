@@ -74,24 +74,6 @@ gh repo fork jasonfarrell-msft/ws-ai-sdlc --clone
 Set-Location ws-ai-sdlc
 ```
 
-Confirm that the repository is your fork:
-
-`isFork` and `admin` must be `true`, and `upstream` must be
-`jasonfarrell-msft/ws-ai-sdlc`.
-
-### Contribute fixes without replacing your fork
-
-Keep `origin` pointed at your fork and `upstream` pointed at the parent
-repository. Make fixes on a topic branch and push that branch to `origin`,
-then open a pull request from the fork branch to the parent's `main`:
-
-After the pull request is merged upstream, synchronize your fork from a clean
-working tree:
-
-These commands preserve the fork. If a fast-forward fails because the branches
-have diverged, stop and reconcile the history rather than force-pushing or
-resetting away fork-specific commits.
-
 ## 2. Check the required tools
 
 `dotnet --version` must report `10.0.300` or a compatible later .NET 10 patch
