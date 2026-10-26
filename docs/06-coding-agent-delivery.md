@@ -25,12 +25,11 @@ in each Task; there is no separate instruction-update exercise.
   [Part 3](03-azure-devops-setup.md), including any required application
   permission approval.
 - Use the existing application and deployment workflow from Parts 1 and 2.
-  The dark-mode application feature requires no AI integration, Foundry model
-  access, or new infrastructure. Copilot access is still needed for the coding
-  agent used to implement it.
+  The dark-mode application feature requires no additional services or
+  infrastructure. Copilot access is still needed for the coding agent used
+  to implement it.
 
 > [!NOTE]
-> Foundry resources provisioned by Part 1 are not used in this exercise.
 > Leave infrastructure and Azure RBAC unchanged. The GitHub Actions identity
 > remains limited to deploying the Web App; do not expand its Azure access.
 

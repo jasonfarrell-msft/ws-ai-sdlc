@@ -53,6 +53,7 @@ $templateFile = Join-Path $script:InfraDirectory 'main.bicep'
 $parametersFile = Join-Path $script:InfraDirectory 'main.parameters.json'
 
 Write-Host "1/4 Provisioning App Service environment '$environmentName'."
+Write-Warning 'Stack updates delete resources removed from the template. Review the Azure CLI confirmation before proceeding.'
 az stack group create `
     --subscription $script:SubscriptionId `
     --resource-group $ResourceGroup `
@@ -67,7 +68,6 @@ az stack group create `
         "createdAt=$createdAt" `
     --action-on-unmanage deleteAll `
     --deny-settings-mode None `
-    --yes `
     --output none
 
 $webAppName = Get-StackOutput `
@@ -82,22 +82,6 @@ $applicationUrl = Get-StackOutput `
     -ResourceGroup $ResourceGroup `
     -StackName $stackName `
     -OutputName applicationUrl
-$foundryResourceName = Get-StackOutput `
-    -ResourceGroup $ResourceGroup `
-    -StackName $stackName `
-    -OutputName foundryResourceName
-$foundryProjectName = Get-StackOutput `
-    -ResourceGroup $ResourceGroup `
-    -StackName $stackName `
-    -OutputName foundryProjectName
-$foundryModelDeploymentName = Get-StackOutput `
-    -ResourceGroup $ResourceGroup `
-    -StackName $stackName `
-    -OutputName foundryModelDeploymentName
-$foundryEndpoint = Get-StackOutput `
-    -ResourceGroup $ResourceGroup `
-    -StackName $stackName `
-    -OutputName foundryEndpoint
 
 function Test-ApplicationEndpoint {
     param(
@@ -253,10 +237,6 @@ Resource group:    $ResourceGroup
 Application URL:   $applicationUrl
 App Service plan:  $appServicePlanName
 Web App:           $webAppName
-Foundry resource:  $foundryResourceName
-Foundry project:   $foundryProjectName
-Model deployment:  $foundryModelDeploymentName
-Foundry endpoint:  $foundryEndpoint
 
 To remove only this generated environment:
 ./infra/destroy.ps1 -ResourceGroup '$ResourceGroup' -EnvironmentName '$environmentName' -ConfirmEnvironment '$environmentName'

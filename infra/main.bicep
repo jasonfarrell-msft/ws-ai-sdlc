@@ -1,6 +1,6 @@
 targetScope = 'resourceGroup'
 
-@description('Azure region for the App Service, monitoring, and Microsoft Foundry resources.')
+@description('Azure region for the App Service and monitoring resources.')
 param location string = resourceGroup().location
 
 @minLength(4)
@@ -38,10 +38,6 @@ var logAnalyticsName = 'azlaw${resourceToken}'
 var applicationInsightsName = 'azai${resourceToken}'
 var appServicePlanName = 'asp-${resourceToken}'
 var webAppName = 'app-${resourceToken}'
-var foundryAccountName = 'aif${resourceToken}'
-var foundryProjectName = 'support-sim-project'
-var foundryModelDeploymentName = 'gpt-5.4-mini'
-var foundryEndpoint = 'https://${foundryAccountName}.services.ai.azure.com/api/projects/${foundryProjectName}/'
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2026-03-01' = {
   name: logAnalyticsName
@@ -113,76 +109,8 @@ resource webApp 'Microsoft.Web/sites@2026-08-01' = {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: applicationInsights.properties.ConnectionString
         }
-        {
-          name: 'StatusAssigneeInterpreter__Endpoint'
-          value: foundryEndpoint
-        }
       ]
     }
-  }
-}
-
-resource foundryAccount 'Microsoft.CognitiveServices/accounts@2026-07-01' = {
-  name: foundryAccountName
-  location: location
-  kind: 'AIServices'
-  sku: {
-    name: 'S0'
-  }
-  identity: {
-    type: 'SystemAssigned'
-  }
-  tags: commonTags
-  properties: {
-    allowProjectManagement: true
-    customSubDomainName: foundryAccountName
-    disableLocalAuth: true
-    publicNetworkAccess: 'Enabled'
-  }
-}
-
-resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2026-07-01' = {
-  parent: foundryAccount
-  // Serialize account-level writes to avoid Foundry operation conflicts.
-  dependsOn: [
-    foundryModelDeployment
-  ]
-  name: foundryProjectName
-  location: location
-  identity: {
-    type: 'SystemAssigned'
-  }
-  tags: commonTags
-  properties: {
-    description: 'Default Microsoft Foundry project for the Support Desk Simulator.'
-    displayName: foundryProjectName
-  }
-}
-
-resource foundryModelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2026-07-01' = {
-  parent: foundryAccount
-  name: foundryModelDeploymentName
-  sku: {
-    name: 'GlobalStandard'
-    capacity: 50
-  }
-  tags: commonTags
-  properties: {
-    model: {
-      format: 'OpenAI'
-      name: 'gpt-5.4-mini'
-      version: '2026-03-17'
-    }
-  }
-}
-
-resource webAppOpenAiUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(foundryAccount.id, webApp.id, 'Cognitive Services OpenAI User')
-  scope: foundryAccount
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')
-    principalId: webApp.identity.principalId
-    principalType: 'ServicePrincipal'
   }
 }
 
@@ -190,7 +118,3 @@ output environmentName string = environmentName
 output appServicePlanName string = appServicePlan.name
 output webAppName string = webApp.name
 output applicationUrl string = 'https://${webApp.properties.defaultHostName}'
-output foundryResourceName string = foundryAccount.name
-output foundryProjectName string = foundryProject.name
-output foundryModelDeploymentName string = foundryModelDeployment.name
-output foundryEndpoint string = foundryEndpoint

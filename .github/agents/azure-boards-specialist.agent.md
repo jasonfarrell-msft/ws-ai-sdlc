@@ -202,9 +202,8 @@ Interactive Server prerendering and browser interop availability. A small
 first-party JavaScript module may support persistence without Node.js or npm.
 Server-side tests and mocked storage do not prove actual browser behavior.
 
-No application AI integration, Foundry model access, provisioning,
-infrastructure changes, or Azure RBAC changes are required. Do not block
-planning on Foundry availability.
+No application AI integration, additional services, provisioning,
+infrastructure changes, or Azure RBAC changes are required.
 Exclude system-theme detection, cross-device or live cross-tab synchronization,
 custom palettes, and unrelated redesign. Leave existing AI backlog items
 untouched; reuse only matching dark-mode items. Derive exact criteria from

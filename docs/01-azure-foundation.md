@@ -1,10 +1,9 @@
 # Part 1: Deploy the Support Desk Simulator
 
 Run the commands in order in a PowerShell 7 terminal. This part creates an
-Azure App Service, monitoring resources, and a Microsoft Foundry resource with
-a model deployment. The application does not call the model. Parts 4-6 plan
-and deliver dark mode using the existing application and deployment workflow;
-they do not use Foundry or require model access.
+Azure App Service and monitoring resources for the existing application.
+Parts 4-6 use that application and deployment workflow to plan and deliver
+dark mode. No additional service is needed for the feature exercise.
 
 > [!IMPORTANT]
 > The application uses synthetic data and demo identities. Do not enter real
@@ -21,14 +20,10 @@ Install:
 - [GitHub CLI](https://cli.github.com/)
 
 You also need an Azure subscription where you can create a resource group,
-register resource providers, create resources, and assign roles. The deployment
-creates a GPT-5.4-mini `GlobalStandard` deployment with capacity 50
-(50,000 tokens per minute). Before continuing, confirm [regional
-availability](https://learn.microsoft.com/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure-region-availability)
-and [quota](https://learn.microsoft.com/azure/foundry/openai/quotas-limits) for
-your chosen region. Azure resource and model usage can incur charges.
-The existing script still provisions Foundry and requires this quota even
-though the dark-mode exercise does not use it.
+register resource providers, create resources, and assign roles. The baseline
+creates one Basic B1 Linux App Service Plan, one .NET 10 Web App, Log Analytics,
+and workspace-based Application Insights. Azure hosting and monitoring incur
+charges; remove the workshop environment when it is no longer needed.
 
 ## 1. Sign in and fork the repository
 
@@ -78,8 +73,8 @@ Stop the application with <kbd>Ctrl</kbd>+<kbd>C</kbd>.
 
 ## 3. Create a resource group
 
-Choose a region with the required GPT-5.4-mini quota. Use a new, dedicated
-resource group for this workshop:
+Choose a region that supports the required App Service tier. Use a new,
+dedicated resource group for this workshop:
 
 ```powershell
 $resourceGroup = "rg-support-desk-demo"
@@ -104,6 +99,15 @@ creating them:
 Review the result before deploying. Use a different resource group or initials
 if you need to preserve an existing workshop deployment.
 
+> [!WARNING]
+> Updating an existing deployment stack with `deploy.ps1` uses
+> `--action-on-unmanage deleteAll`. Resources removed from the template are
+> deleted when the stack is updated, including model resources from older
+> workshop versions. Confirm those resources are no longer needed before
+> reusing that stack. The script retains Azure CLI's confirmation prompt;
+> review it before approving the update. The group deployment what-if above does not show
+> stack-managed deletions; inspect the existing stack's managed resources too.
+
 ## 5. Deploy
 
 Deploy the infrastructure, publish the application, and verify the live site:
@@ -119,7 +123,7 @@ the resources and registers the App Service deployment endpoint.
 
 ## 6. Verify and save the outputs
 
-The script prints the application URL, resource names, and Foundry endpoint.
+The script prints the application URL and resource names.
 Check the health response and Web App configuration:
 
 ```powershell
@@ -146,6 +150,5 @@ az webapp show `
 
 The health response must be `{"status":"healthy"}`; the Web App state must be
 `Running` and `httpsOnly` must be `true`. Keep the resource group and deployment
-outputs for Parts 2-6. The Foundry endpoint is a nonsecret resource identifier;
-do not hardcode it in source code. Dark mode needs no Foundry endpoint,
-application model integration, or changes to infrastructure or Azure RBAC.
+outputs for Parts 2-6. The dark-mode exercise needs no additional services
+or changes to infrastructure or Azure RBAC.

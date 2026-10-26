@@ -1,8 +1,13 @@
 # Support Desk Simulator
 
-A deployable baseline support application for software-delivery workshops. The
-application is a .NET 10 ASP.NET Core Blazor Web App using Interactive Server
-rendering with a same-process ASP.NET Core API.
+A small, deployable support application for a time-boxed software-delivery
+workshop. Participants use the existing application to plan, implement,
+review, and deploy an accessible dark-mode toggle with a browser-saved
+preference. The exercise keeps feature scope small so participants can finish
+the complete delivery workflow.
+
+The application is a .NET 10 ASP.NET Core Blazor Web App using Interactive
+Server rendering with a same-process ASP.NET Core API.
 
 The repository contains no JavaScript or TypeScript source, Node.js tooling, npm
 manifests, or npm dependencies. Interactive Server uses the Microsoft-provided
@@ -26,13 +31,9 @@ published by the .NET SDK and is not downloaded from npm.
 - Health checks, structured API errors, request limits, role authorization, and
   security response headers
 
-The application intentionally has **no AI integration**. Part 1 provisions a
-Microsoft Foundry resource, the `support-sim-project` project, and a GPT-5.4-mini
-model deployment, but these resources are not used by the current feature
-exercise. The workshop files under [docs/](docs/) guide participants through
-planning and delivering an accessible dark-mode toggle with a browser-saved
-preference. Dark mode is an exercise, not an included baseline capability;
-it needs no AI integration or new infrastructure.
+Dark mode is the workshop exercise, not an included baseline capability. It
+uses the existing application and deployment pipeline without adding services
+or infrastructure.
 
 ## Architecture
 
@@ -46,9 +47,6 @@ Azure App Service
        ├── Blazor components
        ├── Minimal API endpoints under /api
        └── Singleton synthetic support store
-Microsoft Foundry (pre-provisioned; not yet called by the application)
-   ├── support-sim-project
-   └── gpt-5.4-mini deployment
 ```
 
 One code-based Linux Web App hosts the frontend and backend. There is no
@@ -88,10 +86,23 @@ Node.js and npm are neither required nor used.
 
 Restore and run the application:
 
+```powershell
+dotnet restore SupportDesk.slnx --locked-mode
+dotnet run --project src/SupportDesk.App/SupportDesk.App.csproj --launch-profile https
+```
+
 Open the HTTPS URL printed by ASP.NET Core. The UI and API share the same
 origin. Verify the health endpoint:
 
+```powershell
+Invoke-RestMethod https://localhost:7241/api/health
+```
+
 ## Tests and validation
+
+```powershell
+dotnet test SupportDesk.slnx --configuration Release --no-restore
+```
 
 The tests cover health, security headers, identity validation, filtering,
 ticket creation, assignment, status changes, activity history, knowledge search,
@@ -118,15 +129,23 @@ authentication mechanism.
 
 Validate the infrastructure:
 
+```powershell
+./infra/validate.ps1 -ResourceGroup "<your-resource-group>"
+```
+
 Provision App Service, publish the .NET application, ZIP-deploy it, and verify
 the application:
+
+```powershell
+./infra/deploy.ps1 -ResourceGroup "<your-resource-group>" -Initials "<your-initials>"
+```
 
 The deployment creates:
 
 - One Basic B1 Linux App Service Plan
 - One .NET 10 Web App with HTTPS-only access and WebSockets enabled
 - Log Analytics and workspace-based Application Insights
-- A system-assigned managed identity for future Azure service access
+- A system-assigned Web App managed identity
 
 GitHub Actions uses OIDC and the built-in `Website Contributor` role scoped to
 the Web App. It restores from committed NuGet lock files, builds, tests,

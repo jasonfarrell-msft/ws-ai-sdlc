@@ -9,8 +9,8 @@ configure a Sprint, deploy the application, or create a working feature.
 - Complete [Part 4](04-backlog-planning.md). Keep the Azure Boards specialist
   selected in Copilot Chat.
 - Keep the approved Feature and Story IDs from Part 4.
-- Dark mode uses the existing application and deployment workflow. Foundry
-  resources and application model access are not dependencies of this feature.
+- Dark mode uses the existing application and deployment workflow without
+  additional services.
 
 ## 1. Prepare the Task proposal
 
@@ -27,8 +27,8 @@ Accessible Dark Mode Feature, its child Stories, and matching Tasks across
 the project. Read each Story's acceptance criteria from its description or
 dedicated field. Reuse matching items, including unparented Tasks from
 interrupted runs. Inspect existing Blazor components, theme variables,
-hardcoded colors, and relevant tests. Do not inspect or change Foundry
-resources, runtime endpoints, or Azure RBAC.
+hardcoded colors, and relevant tests. Do not provision services or change
+infrastructure, runtime settings, or Azure RBAC.
 
 Select the existing product-facing Stories needed for the complete dark-mode
 demo: accessible switching across existing views, preservation of in-progress

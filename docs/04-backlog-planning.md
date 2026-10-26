@@ -8,8 +8,7 @@ work items. This part creates no Tasks or Sprints.
 
 - Complete [Part 3](03-azure-devops-setup.md) and open your fork in VS Code.
 - This exercise introduces dark mode to the existing application. It requires
-  no application AI integration or Foundry model access. Do not change
-  infrastructure for this exercise.
+  no additional service. Do not change infrastructure for this exercise.
 
 ## 1. Open the Azure Boards specialist
 
@@ -60,7 +59,7 @@ Feature requirements:
   workflows, responsive behavior, and API contracts.
 
 Scope exclusions:
-- No AI, Foundry/model integration, provisioning, RBAC changes, secrets,
+- No application AI integration, provisioning, RBAC changes, secrets,
   new backend endpoints, database, or account-level preference service.
 - No system-theme detection, automatic scheduling, cross-device or live
   cross-tab synchronization, custom palettes, or unrelated redesign.
