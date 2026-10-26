@@ -1,217 +1,151 @@
-# Deploy the Existing Application
+# Part 1: Deploy the Support Desk Simulator
 
-## Goal
-
-Deploy the existing Support Desk Simulator to one Azure App Service Web App and
-confirm that its Blazor frontend and ASP.NET Core API work through one HTTPS
-origin.
-
-The deployment creates:
-
-- One Linux App Service Plan on the Basic B1 tier
-- One .NET 10 Web App with WebSockets enabled for Blazor Interactive Server
-- One published ASP.NET Core application containing the UI and API
-- Log Analytics and workspace-based Application Insights
-- One Microsoft Foundry resource with the `support-sim-project` project
-- One GPT-5.4-mini `GlobalStandard` model deployment
-- A system-assigned App Service identity with the `Cognitive Services OpenAI User`
-  role on the Foundry account
-- The `StatusAssigneeInterpreter__Endpoint` Web App setting containing the
-  generated Foundry project endpoint
-
-There are no containers, registries, JavaScript packages, Node.js tools, npm
-manifests, or custom Azure roles.
+Run the commands in order in a PowerShell 7 terminal. This part creates an
+Azure App Service, monitoring resources, and a Microsoft Foundry resource with
+a model deployment. The application does not call the model. Parts 4-6 plan
+and deliver dark mode using the existing application and deployment workflow;
+they do not use Foundry or require model access.
 
 > [!IMPORTANT]
 > The application uses synthetic data and demo identities. Do not enter real
 > customer, credential, personal, or confidential information.
 
-## Architecture
-
-| Component | Technology | Configuration |
-| --- | --- | --- |
-| Frontend | .NET 10 Blazor Web App | Interactive Server components |
-| Backend | ASP.NET Core | Minimal API routes under `/api` |
-| State | Singleton .NET service | Thread-safe process-local synthetic data |
-| Hosting | Azure App Service | One Linux Web App on one Basic B1 plan |
-| Monitoring | Log Analytics and Application Insights | 30-day workspace retention |
-| AI foundation | Microsoft Foundry | `support-sim-project` and GPT-5.4-mini |
-| Deployment | `dotnet publish` and ZIP deployment | Microsoft Entra authentication |
-
-The UI and API run in one ASP.NET Core process. Blazor Interactive Server uses
-the Microsoft-provided browser bootstrap asset included with ASP.NET Core. It
-does not use npm or a JavaScript package pipeline.
-
-The store resets when the application restarts. The plan uses one instance
-because multiple instances would not share changes.
-
 ## Prerequisites
 
-Run every command in this guide from a PowerShell 7 terminal. You need:
-
-- Access to an Azure subscription
-- Permission to create resources in a dedicated resource group
-- Azure CLI 2.48.1 or newer with Bicep
-- .NET 10 SDK
-- Git and GitHub CLI
-
-Install any missing prerequisites:
+Install:
 
 - [PowerShell 7](https://learn.microsoft.com/powershell/scripting/install/installing-powershell)
+- [Azure CLI 2.48.1 or later](https://learn.microsoft.com/cli/azure/install-azure-cli)
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [Git](https://git-scm.com/downloads)
 - [GitHub CLI](https://cli.github.com/)
-- [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
 
-Open a new PowerShell terminal, then install Bicep:
+You also need an Azure subscription where you can create a resource group,
+register resource providers, create resources, and assign roles. The deployment
+creates a GPT-5.4-mini `GlobalStandard` deployment with capacity 50
+(50,000 tokens per minute). Before continuing, confirm [regional
+availability](https://learn.microsoft.com/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure-region-availability)
+and [quota](https://learn.microsoft.com/azure/foundry/openai/quotas-limits) for
+your chosen region. Azure resource and model usage can incur charges.
+The existing script still provisions Foundry and requires this quota even
+though the dark-mode exercise does not use it.
 
-## 1. Fork and clone the repository
+## 1. Sign in and fork the repository
 
-Confirm that the repository is your fork:
-
-`isFork` and `admin` must be `true`, and `upstream` must be
-`jasonfarrell-msft/ws-ai-sdlc`.
-
-### Contribute fixes without replacing your fork
-
-Keep `origin` pointed at your fork and `upstream` pointed at the parent
-repository. Make fixes on a topic branch and push that branch to `origin`,
-then open a pull request from the fork branch to the parent's `main`:
-
-After the pull request is merged upstream, synchronize your fork from a clean
-working tree:
-
-These commands preserve the fork. If a fast-forward fails because the branches
-have diverged, stop and reconcile the history rather than force-pushing or
-resetting away fork-specific commits.
-
-## 2. Check the required tools
-
-`dotnet --version` must report `10.0.300` or a compatible later .NET 10 patch
-selected by [`global.json`](../global.json).
-
-No Node.js or npm check is required. The repository contains no npm packages and
-does not contact an npm registry.
-
-## 3. Restore, test, and run locally
-
-Open the HTTPS URL printed by ASP.NET Core. Confirm the ticket and knowledge
-workflows, then stop the local process with <kbd>Ctrl</kbd>+<kbd>C</kbd>.
-
-## 4. Sign in and create the resource group
-
-Register the required resource providers:
-
-## 5. Validate the infrastructure
-
-The script compiles [`infra/main.bicep`](../infra/main.bicep) and runs an Azure
-Resource Manager what-if without creating resources.
-
-> [!WARNING]
-> If the resource group contains an older workshop deployment using the same
-> initials, the deployment stack replaces resources previously managed by that
-> stack. Use a different resource group or initials if the older environment
-> must remain available.
-
-## 6. Deploy the application
-
-Enter 2-5 letters when prompted. The script lowercases the initials and appends
-`01`; for example, `JRF` becomes `jrf01`. For non-interactive use:
-
-The script performs four visible stages:
-
-1. Creates or updates the App Service deployment stack.
-2. Publishes the .NET 10 application in Release configuration.
-3. Waits for the new App Service SCM/Kudu hostname to resolve and accept HTTPS,
-   then ZIP-deploys the published output to the Web App.
-4. Verifies `/api/health` and the rendered Blazor application.
-
-Rerunning the command with the same initials updates the same environment.
-`-SkipCodeDeploy` provisions only infrastructure.
-
-The GPT-5.4-mini deployment belongs to the Foundry account, not the project.
-The template provisions the account, then its model deployment, then its
-project. The project's explicit dependency on the model deployment controls
-operation order only; both resources remain children of the account. This
-prevents their writes from running concurrently and causing an account-level
-`RequestConflict`.
-
-If Azure still reports another operation in progress, inspect the deployment
-operations and the account's Activity Log for an overlapping external operation.
-Allow that operation to finish before rerunning the same command with the same
-initials. Do not delete the environment just to retry a partially completed
-deployment.
-
-The first deployment can pause at stage 3 while Azure publishes the new SCM
-DNS record. The script retries that readiness check for up to five minutes
-before failing with the exact hostname, then retries transient Kudu deployment
-failures up to three times. It does not enable App Service build automation
-because `dotnet publish` has already produced a complete package.
-
-## 7. Record and verify the deployment
-
-The successful command prints:
-
-```text
-Infrastructure ready; application deployment verified.
-Environment name:  <initials>01
-Deployment stack: azstk<initials>01
-Resource group:    <resource-group-name>
-Application URL:   https://<web-app-name>.azurewebsites.net
-App Service plan:  <app-service-plan-name>
-Web App:           <web-app-name>
-Foundry resource:  <foundry-resource-name>
-Foundry project:   support-sim-project
-Model deployment:  gpt-5.4-mini
-Foundry endpoint:  https://<foundry-resource-name>.services.ai.azure.com/api/projects/support-sim-project/
-```
-
-The deployment stack retains these outputs for later handoffs. The endpoint is
-also applied to the Web App as the nonsecret
-`StatusAssigneeInterpreter__Endpoint` setting; do not copy it into source code,
-GitHub secrets, or a task description as a hardcoded account name. Retrieve it
-again at any time with:
+Sign in to GitHub and fork the workshop repository:
 
 ```powershell
-az stack group show `
-  --resource-group $RESOURCE_GROUP `
-  --name "azstk$($environmentName)" `
-  --query 'outputs.{foundryEndpoint:foundryEndpoint.value,foundryResource:foundryResourceName.value,foundryProject:foundryProjectName.value,model:foundryModelDeploymentName.value}' `
+gh auth login
+gh repo fork jasonfarrell-msft/ws-ai-sdlc --clone
+Set-Location ws-ai-sdlc
+```
+
+Sign in to Azure and select the subscription you will use:
+
+```powershell
+az login
+az account list --output table
+$subscriptionId = "<your-subscription-id>"
+az account set --subscription $subscriptionId
+az account show --output table
+```
+
+## 2. Check tools and run the application locally
+
+Confirm the installed versions. `dotnet --version` must report `10.0.300`, as
+selected by [`global.json`](../global.json).
+
+```powershell
+az version --query '"azure-cli"' --output tsv
+az bicep install
+az bicep version
+dotnet --version
+dotnet dev-certs https --trust
+git --version
+gh --version
+```
+
+Restore, test, and run the application:
+
+```powershell
+dotnet restore SupportDesk.slnx --locked-mode
+dotnet test SupportDesk.slnx --configuration Release --no-restore
+dotnet run --project src/SupportDesk.App/SupportDesk.App.csproj --launch-profile https
+```
+
+Open `https://localhost:7241` and confirm the ticket and knowledge pages load.
+Stop the application with <kbd>Ctrl</kbd>+<kbd>C</kbd>.
+
+## 3. Create a resource group
+
+Choose a region with the required GPT-5.4-mini quota. Use a new, dedicated
+resource group for this workshop:
+
+```powershell
+$resourceGroup = "rg-support-desk-demo"
+$location = "eastus2"
+$initials = "JRF"
+
+az group create `
+  --name $resourceGroup `
+  --location $location `
   --output table
 ```
 
-Parts 4-6 now plan and deliver dark mode. That exercise uses the existing
-application and deployment workflow, not these Foundry outputs, and adds no
-infrastructure provisioning or model-access work.
+## 4. Validate the infrastructure
 
-The App Service has a system-assigned managed identity. Part 1 grants that
-identity the least-privilege `Cognitive Services OpenAI User` role scoped to the
-Foundry account; the role assignment is part of the same Bicep deployment.
-Local key authentication is disabled on the account. GPT-5.4-mini model version
-`2026-03-17` is deployed as `GlobalStandard` with capacity 50 in the resource
-group's region (targeting 50,000 tokens per minute). Confirm that the model
-deployment is available and quota is approved for that region before
-deployment; ARM provisioning will fail if sufficient quota is unavailable.
-Model usage can incur charges.
-The current application does not call the model. The endpoint setting and
-role remain part of the existing foundation, but are not needed for dark mode.
-The existing deployment script still provisions Foundry and requires the model
-quota described above, even though the dark-mode exercise does not use it.
+This compiles the Bicep template and shows the planned Azure changes without
+creating them:
 
-The health response must be `{"status":"healthy"}`, the state must be `Running`,
-and `httpsOnly` must be `true`.
+```powershell
+./infra/validate.ps1 -ResourceGroup $resourceGroup
+```
 
-## Deployment complete
+Review the result before deploying. Use a different resource group or initials
+if you need to preserve an existing workshop deployment.
 
-The Blazor frontend and ASP.NET Core backend now run as one .NET App Service
-application. The Microsoft Foundry resource, project, model deployment, runtime
-RBAC, and nonsecret endpoint setting are provisioned together.
+## 5. Deploy
 
-## Public documentation used for validation
+Deploy the infrastructure, publish the application, and verify the live site:
 
-- [Deploy a Microsoft Foundry resource by using Bicep](https://learn.microsoft.com/azure/foundry/how-to/create-resource-template)
-- [Microsoft Foundry account Bicep reference](https://learn.microsoft.com/azure/templates/microsoft.cognitiveservices/2026-07-01/accounts)
-- [Microsoft Foundry project Bicep reference](https://learn.microsoft.com/azure/templates/microsoft.cognitiveservices/2026-07-01/accounts/projects)
-- [Microsoft Foundry model deployment Bicep reference](https://learn.microsoft.com/azure/templates/microsoft.cognitiveservices/2026-07-01/accounts/deployments)
-- [Foundry Models sold directly by Azure](https://learn.microsoft.com/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure)
-- [Region availability for Foundry Models sold by Azure](https://learn.microsoft.com/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure-region-availability)
+```powershell
+./infra/deploy.ps1 -ResourceGroup $resourceGroup -Initials $initials
+```
+
+The script creates the deployment stack, publishes the application, ZIP-deploys
+it to App Service, and checks the health endpoint, rendered page, and Blazor
+connection. The first deployment can take several minutes while Azure creates
+the resources and registers the App Service deployment endpoint.
+
+## 6. Verify and save the outputs
+
+The script prints the application URL, resource names, and Foundry endpoint.
+Check the health response and Web App configuration:
+
+```powershell
+$environmentName = "$($initials.ToLowerInvariant())01"
+$stackName = "azstk$environmentName"
+$webAppName = az stack group show `
+  --resource-group $resourceGroup `
+  --name $stackName `
+  --query "outputs.webAppName.value" `
+  --output tsv
+$applicationUrl = az stack group show `
+  --resource-group $resourceGroup `
+  --name $stackName `
+  --query "outputs.applicationUrl.value" `
+  --output tsv
+
+Invoke-RestMethod "$applicationUrl/api/health"
+az webapp show `
+  --resource-group $resourceGroup `
+  --name $webAppName `
+  --query "{state:state,httpsOnly:httpsOnly}" `
+  --output table
+```
+
+The health response must be `{"status":"healthy"}`; the Web App state must be
+`Running` and `httpsOnly` must be `true`. Keep the resource group and deployment
+outputs for Parts 2-6. The Foundry endpoint is a nonsecret resource identifier;
+do not hardcode it in source code. Dark mode needs no Foundry endpoint,
+application model integration, or changes to infrastructure or Azure RBAC.

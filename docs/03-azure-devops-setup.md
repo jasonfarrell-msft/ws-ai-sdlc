@@ -1,153 +1,158 @@
-# Connect Azure Boards to GitHub
+# Part 3: Connect Azure Boards to GitHub
 
-## Goal
-
-In this part, you create an Azure DevOps project and connect its Azure Boards
-work items to your fork of the workshop repository.
-
-You also establish a local Azure DevOps CLI context. Any local tool running as
-your user that can invoke Azure CLI can then read or update the project with
-your permissions.
-
-By the end of this part, you will have:
-
-- A private Azure DevOps project
-- The Azure Boards GitHub App connected only to your fork
-- Azure DevOps CLI defaults for your organization and project
-- A work item that verifies your Boards access
-
-The examples recommend `Support-Sim` as the project name. You may choose a
-different name.
+Run the commands in order in a PowerShell 7 terminal from your fork. This part
+creates an Azure DevOps project, connects Azure Boards to your GitHub fork, and
+configures the Azure DevOps CLI for later workshop parts.
 
 ## Prerequisites
 
-Before continuing:
-
-- Complete Part 1 and use the personal fork created there.
+- Complete [Part 1](01-azure-foundation.md) and use the personal fork created
+  there.
 - Have an Azure DevOps organization in the same Microsoft Entra tenant as your
-  user account.
-- Be a member, rather than a guest, in that tenant. Guest users require
-  PAT-based Azure DevOps CLI authentication, which this workshop does not use.
-- Have permission to create projects in that organization.
+  account. Your account must be a member of that tenant, not a guest.
+- Have permission to create projects in the Azure DevOps organization.
 - Have administrator access to your GitHub fork.
-- Use a PowerShell 7 terminal from the repository root.
-- Install Azure CLI and GitHub CLI.
+- Install [PowerShell 7](https://learn.microsoft.com/powershell/scripting/install/installing-powershell),
+  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), and
+  [GitHub CLI](https://cli.github.com/).
 
 > [!IMPORTANT]
-> This part uses your interactive Microsoft Entra sign-in. Do not create a
-> personal access token (PAT), service principal secret, or other stored
-> credential for this workshop.
+> Sign in with Microsoft Entra ID. Do not create or use a personal access token
+> (PAT) or other stored credential for this workshop.
 
-## 1. Set the organization, project, and repository
+## 1. Set the organization, project, and fork
 
-Set your Azure DevOps organization URL. Keep the recommended project name, or
-replace it with another name:
+Set your Azure DevOps organization URL and project name:
 
-Get the name of your GitHub fork:
+```powershell
+$AZURE_DEVOPS_ORGANIZATION = "https://dev.azure.com/<organization-name>"
+$AZURE_DEVOPS_PROJECT = "Support-Sim"
+```
 
-The GitHub command must show `isFork: true`, `admin: true`, and upstream
+Replace `<organization-name>` with your Azure DevOps organization name. Keep
+`Support-Sim` or choose a project name that is not already in use.
+
+Get your personal fork and confirm it belongs to the workshop:
+
+```powershell
+gh auth login
+$githubUser = gh api user --jq '.login'
+$GITHUB_REPOSITORY = "$githubUser/ws-ai-sdlc"
+gh api "repos/$GITHUB_REPOSITORY" `
+  --jq '{name: .full_name, isFork: .fork, admin: .permissions.admin, parent: .parent.full_name}'
+```
+
+The output must show your fork, `isFork: true`, `admin: true`, and parent
 `jasonfarrell-msft/ws-ai-sdlc`.
 
 ## 2. Install the Azure DevOps CLI extension
 
-Install or update the Azure DevOps extension for Azure CLI:
+Install or update the extension:
 
-The extension supplies the `az devops` and `az boards` command groups.
+```powershell
+az extension add --name azure-devops --upgrade
+```
 
-## 3. Sign in as yourself
+## 3. Sign in and check organization access
 
-Sign in interactively with the Microsoft Entra account that has access to your
-Azure DevOps organization:
+Sign in with the Microsoft Entra account that has access to your Azure DevOps
+organization:
 
-If the browser cannot open, use device-code authentication:
-
-If your account belongs to more than one tenant, sign in to the tenant that
-contains the Azure DevOps organization:
-
-Confirm that your signed-in identity can reach the organization:
-
-The command may return no projects if the organization is empty, but it must
-not return an authentication or authorization error.
-
-> [!WARNING]
-> Do not run `az devops login` for this workshop. That command stores a PAT for
-> an organization. The Azure DevOps extension can use the interactive
-> `az login` session instead.
+```powershell
+az login
+```
 
 ## 4. Create the Azure DevOps project
 
-Create a private project that uses the Agile work item process:
+Check whether the project name is already in use:
 
-Project names must be unique within an Azure DevOps organization. If your
-chosen name already exists, either use that project if you administer it or
-change `$AZURE_DEVOPS_PROJECT` and run the command again.
+```powershell
+az devops project list `
+  --organization $AZURE_DEVOPS_ORGANIZATION `
+  --output table
+```
 
-The command creates an Azure Repos repository with the project. Leave it empty;
-the workshop source remains in your GitHub fork.
+Create a private project using the Agile process:
 
-## 5. Configure the local Azure DevOps context
+```powershell
+az devops project create `
+  --name $AZURE_DEVOPS_PROJECT `
+  --organization $AZURE_DEVOPS_ORGANIZATION `
+  --process Agile `
+  --visibility private `
+  --source-control git `
+  --output table
+```
 
-Set the organization and project as defaults for later commands:
+If the project already exists, use it only if you administer it; otherwise
+change `$AZURE_DEVOPS_PROJECT` and run the command again. The project creates
+an empty Azure Repos repository. Keep the workshop source in your GitHub fork.
 
-Verify that the defaults resolve to the new project:
+## 5. Configure and verify the local CLI context
+
+Set the organization and project defaults:
+
+```powershell
+az devops configure --defaults `
+  "organization=$AZURE_DEVOPS_ORGANIZATION" `
+  "project=$AZURE_DEVOPS_PROJECT"
+```
+
+Verify the defaults and project:
+
+```powershell
+az devops configure --list
+az devops project show `
+  --organization $AZURE_DEVOPS_ORGANIZATION `
+  --project $AZURE_DEVOPS_PROJECT `
+  --output table
+```
 
 These defaults are stored in your local Azure CLI configuration. Local tools
-running as the same operating-system user can invoke `az devops` and
-`az boards` without receiving a copied password or PAT.
-
-> [!NOTE]
-> A remote or hosted agent cannot inherit this local sign-in. It needs its own
-> approved authentication and authorization configuration.
+running as your user can use `az boards` and `az devops` with your signed-in
+identity. Remote or hosted tools need their own approved authentication.
 
 ## 6. Connect the Azure Boards GitHub App
 
-Open the project in Azure DevOps:
+Open the Azure DevOps project:
 
-In the Azure DevOps browser window:
+```powershell
+az devops project show `
+  --organization $AZURE_DEVOPS_ORGANIZATION `
+  --project $AZURE_DEVOPS_PROJECT `
+  --open
+```
 
-1. Select **Project settings**.
-2. Select **GitHub connections**.
-3. Select **Connect your GitHub account**.
-4. Select the GitHub account that owns your fork and authenticate if prompted.
-5. In **Add GitHub Repositories**, clear every repository except
-   `$GITHUB_REPOSITORY`, then select **Save**.
-6. Complete the Azure Boards app installation on GitHub:
-   1. After you select **Save** in Azure DevOps, GitHub should open the
-      **Install & Authorize Azure Boards** page. If it does not open, go to the
-      [Azure Boards app in the GitHub Marketplace](https://github.com/marketplace/azure-boards),
-      then under **Plans and pricing** > **Free**, select **Install**.
-   2. Select the personal account or organization that owns
-      `$GITHUB_REPOSITORY`.
-   3. Under **Repository access**, select **Only select repositories**, then
-      select only `$GITHUB_REPOSITORY`.
-   4. At the bottom of the page, select **Approve, Install, & Authorize**. The
-      button may appear as **Install & Authorize** if no separate organization
-      approval is required.
-   5. If GitHub shows **Request** instead, submit the request and ask an
-      organization owner to approve it. The owner can open the organization,
-      select **Settings** > **GitHub Apps**, and review the pending Azure Boards
-      installation request.
-7. Return to Azure DevOps and confirm that the connection lists your fork.
+In Azure DevOps:
 
-GitHub organizations may require an organization owner to approve the app
-installation. A fork under your personal account does not require approval
+1. Open **Project settings** > **GitHub connections** and select **Connect your
+   GitHub account**.
+2. Select the GitHub account that owns your fork. In **Add GitHub Repositories**,
+   select only `$GITHUB_REPOSITORY`, then select **Save**.
+3. On GitHub's **Install & Authorize Azure Boards** page, select the account
+   that owns the fork. Set **Repository access** to **Only select repositories**
+   and select only `$GITHUB_REPOSITORY`.
+4. Select **Approve, Install, & Authorize** (or **Install & Authorize**).
+   If GitHub shows **Request**, submit it and ask an organization owner to
+   approve the Azure Boards app installation.
+5. Return to Azure DevOps and confirm the connection lists your fork.
+
+Do not grant the app access to every repository. A GitHub organization may
+require an owner to approve the app; a personal fork does not require approval
 from the upstream repository owner.
 
-Grant the app access only to the workshop fork. Do not grant access to every
-repository in your account.
+## 7. Verify Boards access
 
-The connection links Azure Boards to GitHub. It does not move the source code
-to Azure Repos and does not grant GitHub access to your Azure subscription.
+Create one task to verify that your account can write to the project:
 
-## 7. Verify Boards access from the CLI
+```powershell
+az boards work-item create `
+  --type Task `
+  --title "Verify Azure Boards CLI access" `
+  --description "Confirm Azure Boards CLI access for the workshop project." `
+  --output table
+```
 
-Create a task in Azure Boards that records completion of this setup. Successful
-creation verifies the signed-in identity, organization, project, and Boards
-permissions that local tools will use.
-
-## Azure Boards setup complete
-
-Your Azure DevOps project is connected to your GitHub fork, and your local
-Azure DevOps CLI context is ready. Local assistants and command-line tools can
-use `az boards` commands with your signed-in identity and your configured
-organization and project defaults.
+Keep the returned work item ID for reference. This connection links Azure
+Boards to your GitHub fork; it does not move source code to Azure Repos or grant
+GitHub access to your Azure subscription.

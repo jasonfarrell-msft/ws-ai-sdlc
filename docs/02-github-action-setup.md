@@ -1,57 +1,119 @@
-# Configure Automatic Deployment
+# Part 2: Configure Automatic Deployment
 
-## Goal
+Run the commands in order in a PowerShell 7 terminal from your fork. This part
+connects GitHub Actions to the App Service created in Part 1. Pull requests run
+validation; runs on `main` can deploy the application to Azure.
 
-Connect the fork's GitHub Actions workflow to the App Service Web App created in
-Part 1. Pull requests restore, format-check, build, test, publish, and smoke-test
-the .NET application without Azure access. Merges to `main` deploy the same
-published output.
-
-The setup uses GitHub OIDC and one Azure user-assigned managed identity. It
-stores no Azure client secret or App Service publishing credential.
-
-The workflow uses only the .NET SDK and NuGet. It contains no Node.js, npm,
-JavaScript package, Python, or frontend package-manager step.
+GitHub authenticates to Azure with OpenID Connect (OIDC) and a user-assigned
+managed identity. The setup stores no Azure client secret or publishing
+credential.
 
 ## Prerequisites
 
-- Complete Part 1 and retain its deployment output.
+- Complete [Part 1](01-azure-foundation.md).
 - Use the personal fork created in Part 1.
-- Use a PowerShell 7 terminal with authenticated Azure and GitHub CLIs.
-- Have permission to create a managed identity and assign a built-in role.
-- Ensure [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) is on
-  the fork's `main` branch.
+- Have administrator access to the fork.
+- Have permission to create a managed identity and assign the `Website
+  Contributor` role to the App Service.
+- Install [PowerShell 7](https://learn.microsoft.com/powershell/scripting/install/installing-powershell),
+  [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), and
+  [GitHub CLI](https://cli.github.com/).
 
-## 1. Confirm access
+## 1. Sign in to GitHub and Azure
 
-## 2. Enable workflows in the fork
+Sign in and confirm that GitHub CLI can access your fork:
 
-Open the fork's Actions page and select
-**I understand my workflows, go ahead and enable them**:
+```powershell
+gh auth login
+gh auth status
+$githubUser = gh api user --jq '.login'
+$repository = "$githubUser/ws-ai-sdlc"
+gh repo set-default $repository
+gh repo view $repository --json nameWithOwner,isFork,parent
+```
 
-Confirm that the workflow is registered and not `disabled_fork`:
+`nameWithOwner` must be your fork, `isFork` must be `true`, and `parent` must be
+`jasonfarrell-msft/ws-ai-sdlc`.
 
-## 3. Set the Part 1 values
+Sign in to the Azure subscription used in Part 1:
+
+```powershell
+az login
+az account list --output table
+$subscriptionId = "<your-subscription-id>"
+az account set --subscription $subscriptionId
+az account show --output table
+```
+
+## 2. Enable the workflow in your fork
+
+Confirm that the latest `.github/workflows/deploy.yml` is on your fork's
+`main` branch. If your fork is behind the workshop repository, open its GitHub
+page and select **Sync fork** to update it.
+
+Open the fork's Actions page:
+
+```powershell
+Start-Process "https://github.com/$repository/actions"
+```
+
+If GitHub displays **I understand my workflows, go ahead and enable them**,
+select it. Confirm the `Validate and deploy` workflow is listed and enabled:
+
+```powershell
+gh workflow list --repo $repository --all
+```
+
+## 3. Set the Part 1 deployment values
+
+Enter the same resource group and initials used in Part 1. The initials
+determine the environment name (`JRF` becomes `jrf01`):
+
+```powershell
+$resourceGroup = "rg-support-desk-demo"
+$initials = "JRF"
+$environmentName = "$($initials.ToLowerInvariant())01"
+$stackName = "azstk$environmentName"
+
+$webAppName = az stack group show `
+  --resource-group $resourceGroup `
+  --name $stackName `
+  --query "outputs.webAppName.value" `
+  --output tsv
+
+$webAppName
+```
+
+Replace the sample resource group and initials with the values from Part 1.
+Confirm that `$webAppName` prints the Web App name before continuing.
 
 ## 4. Configure Azure and GitHub
 
-The script creates:
+Run the setup script:
 
-| Item | Purpose |
-| --- | --- |
-| User-assigned managed identity | Gives GitHub a secretless Azure identity |
-| Environment-scoped OIDC credential | Trusts only `workshop-deployment` in this fork |
-| Built-in `Website Contributor` assignment | Deploys only to the generated Web App |
-| `workshop-deployment` environment | Holds non-secret Azure resource identifiers |
-| `main` branch policy | Prevents other branches from using the deployment identity |
+```powershell
+./infra/configure-github-actions.ps1 `
+  -ResourceGroup $resourceGroup `
+  -EnvironmentName $environmentName `
+  -WebApp $webAppName `
+  -Repository $repository
+```
 
-> [!WARNING]
-> Maintainers testing the source repository can temporarily add
-> `-SkipForkValidation`. Participants must not use that override.
+The script creates the managed identity, configures its OIDC credential and
+App Service role, creates the `workshop-deployment` GitHub environment, limits
+that environment to `main`, and sets the workflow's Azure variables.
 
 ## 5. Verify the configuration
 
-Expected variable names:
+Confirm the five variables are set in the GitHub environment:
+
+```powershell
+gh variable list `
+  --repo $repository `
+  --env workshop-deployment
+```
+
+The list must include:
 
 ```text
 AZURE_CLIENT_ID
@@ -61,43 +123,31 @@ AZURE_RESOURCE_GROUP
 AZURE_WEB_APP
 ```
 
-## 6. Test the deployment loop
+## 6. Run and verify the deployment workflow
 
-The workflow:
+Start a manual run on `main`:
 
-1. Installs and selects the exact .NET 10.0.300 SDK declared by
-   [`global.json`](../global.json).
-2. Restores the committed NuGet lock files in locked mode.
-3. Verifies C# and Razor formatting.
-4. Builds and runs the MSTest suite.
-5. Publishes and smoke-tests the complete Blazor/API application.
-6. Compiles the Bicep infrastructure.
-7. Signs in to Azure through OIDC.
-8. ZIP-deploys the published .NET output to App Service.
-9. Verifies the health endpoint and rendered application.
+```powershell
+gh workflow run deploy.yml --repo $repository --ref main
+gh run list --repo $repository --workflow deploy.yml --limit 5
+```
 
-No workflow step contacts npm or a public npm registry.
+Open the new run from the fork's Actions page and confirm that the validation,
+infrastructure, and deployment jobs succeed. The workflow builds and tests the
+.NET application, then deploys it through OIDC and verifies the health endpoint,
+rendered page, and Blazor connection.
 
-The SDK version is part of the locked dependency graph. ASP.NET Core Web SDK
-projects receive an implicit `Microsoft.AspNetCore.App.Internal.Assets`
-reference from the installed targeting pack, so allowing the SDK to roll
-forward can make locked restore fail even when no project package reference
-changed. In both validation and deployment jobs, `setup-dotnet` reads the exact
-version from the root `global.json`, and the workflow logs `dotnet --version`
-before restore. Regenerate lock files only when intentionally changing the SDK,
-and use that selected SDK for the regeneration.
+Confirm the deployed application responds:
 
-If you created your fork before this parent-repository fix, sync the parent
-repository's latest `main` into your fork before running the workflow again.
-At minimum, copy the updated `global.json` and
-`.github/workflows/deploy.yml` into your fork together; changing only one leaves
-SDK installation and selection inconsistent. Keep the committed lock files
-unchanged for SDK 10.0.300.
+```powershell
+$applicationUrl = "https://$webAppName.azurewebsites.net"
+Invoke-RestMethod "$applicationUrl/api/health"
+```
 
-Azure role assignments can take several minutes to propagate. If the first run
-fails with authorization denied, wait two minutes and rerun it:
+The response must be `{"status":"healthy"}`. Future pull requests run validation;
+pushes to `main` that change workflow paths run validation and deploy.
 
-## Automatic deployment setup complete
-
-Pull requests validate without Azure access. Merges to `main` deploy the Blazor
-frontend and ASP.NET Core backend together as one .NET App Service package.
+If the deployment fails with authorization denied, wait two minutes for the
+Azure role assignment to propagate, then run the workflow again. If GitHub
+reports a missing workflow, sync the fork with the latest workshop `main` and
+repeat steps 2-6.
