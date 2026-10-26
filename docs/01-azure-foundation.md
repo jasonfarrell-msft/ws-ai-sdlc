@@ -180,8 +180,9 @@ az stack group show `
   --output table
 ```
 
-Parts 5 and 6 use these existing outputs and do not add infrastructure
-provisioning work to the Sprint.
+Parts 4-6 now plan and deliver dark mode. That exercise uses the existing
+application and deployment workflow, not these Foundry outputs, and adds no
+infrastructure provisioning or model-access work.
 
 The App Service has a system-assigned managed identity. Part 1 grants that
 identity the least-privilege `Cognitive Services OpenAI User` role scoped to the
@@ -192,8 +193,10 @@ group's region (targeting 50,000 tokens per minute). Confirm that the model
 deployment is available and quota is approved for that region before
 deployment; ARM provisioning will fail if sufficient quota is unavailable.
 Model usage can incur charges.
-The current application does not call the model yet. The endpoint setting and
-role are provisioned for the later application integration.
+The current application does not call the model. The endpoint setting and
+role remain part of the existing foundation, but are not needed for dark mode.
+The existing deployment script still provisions Foundry and requires the model
+quota described above, even though the dark-mode exercise does not use it.
 
 The health response must be `{"status":"healthy"}`, the state must be `Running`,
 and `httpsOnly` must be `true`.

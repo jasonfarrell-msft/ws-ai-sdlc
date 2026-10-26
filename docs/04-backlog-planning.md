@@ -7,9 +7,9 @@ This part creates no Tasks or Sprints.
 ## Before you start
 
 Complete [Part 3](03-azure-devops-setup.md) and open your fork in VS Code.
-Part 1 must have completed successfully: it provisions Microsoft Foundry,
-`support-sim-project`, and `gpt-5.4-mini`. Application access to the model is
-separate and may still need authorization.
+The exercise introduces dark mode to the existing application. It requires no
+application AI integration or Foundry model access. Resources provisioned by Part 1 are
+not used by this feature; do not change infrastructure for this exercise.
 
 ## 1. Create the specialist
 
@@ -56,16 +56,10 @@ Review is a release gate. Do not invent or weaken the Definition of Done.
 - Reuse facts and approvals already in the conversation. Ask only when missing
   information blocks a safe proposal or changes product scope or access.
   Otherwise record the dependency and continue drafting.
-- Completed Part 1 confirms the existing Foundry resource, support-sim-project,
-  and gpt-5.4-mini. Reuse its saved output or the user's existing confirmation;
-  do not ask for resource names solely to draft backlog work. Documentation
-  examples are not deployment evidence. If confirmation is absent, ask once
-  for saved output or a resource group for a scoped, read-only check.
-- If a foundation resource is missing, report the Part 1 prerequisite and stop.
-  Do not create provisioning work. Endpoint configuration and managed-identity
-  runtime permission are separate application dependencies, not proof of
-  missing infrastructure. Keep external access checks separate from code/test
-  completion; do not change Azure resources or RBAC while planning.
+- This workshop plans a light/dark theme toggle and a remembered browser
+  preference. Inspect the existing Blazor UI and CSS before proposing work.
+  No application AI integration, Foundry model access, infrastructure, or
+  Azure RBAC changes are needed. Do not block planning on Foundry availability.
 
 ## Verify the target
 
@@ -106,12 +100,14 @@ Review is a release gate. Do not invent or weaken the Definition of Done.
   prerequisite Task IDs, and inspected repository areas likely to change.
   Each Task is a tangible unit of implementation and deployment. Its change
   must be deployable while preserving existing behavior, even if the Story's
-  capability is not yet fully available. Tasks may separate backend, frontend,
-  and agent/prompt work when these are meaningful deployable units. They do
-  not each have to fulfill the whole Story. Define interfaces, prerequisites,
+  capability is not yet fully available. Split work only where it creates
+  meaningful deployable units. Tasks do not each have to fulfill the whole
+  Story. Define interfaces, prerequisites,
   and safe coexistence with incomplete work; do not defer all deployment until
-  Story completion. Test doubles do not prove live integration or eliminate
-  deployment prerequisites.
+  Story completion. For dark mode, assess theme styling, accessible controls,
+  and browser-preference persistence; do not invent backend or AI work.
+  Test doubles do not prove browser behavior or eliminate deployment
+  prerequisites.
 - Derive criteria from supplied product requirements; do not add new behavior.
   Do not rewrite approved criteria without explicit approval. Include related
   tests and documentation in the implementation Task unless independently
@@ -165,10 +161,11 @@ the backlog in the same step.
 
 ## 2. Draft the product backlog
 
-The core Feature answers questions about one ticket. The optional Feature
-answers questions across the queue; it stays outside the later coding exercise.
+The Feature adds an accessible light/dark toggle and remembers the selected
+theme in the same browser. Keep this exercise small: no AI integration,
+system-theme detection, account settings, or unrelated redesign.
 The Feature defines the complete intended experience. Its Stories are bounded,
-acceptable components that collectively fulfill it. Part 5 decomposes selected
+acceptable components that collectively fulfill it. Part 5 decomposes its
 Stories into tangible, deployable Tasks; a Story is not a deployment gate.
 
 Submit this prompt to the specialist:
@@ -180,44 +177,48 @@ Verify CLI defaults, the authenticated Boards identity, project, and Agile
 process. Present a proposal before any writes.
 
 Use this hierarchy:
-- Epic: Conversational Ticket Insights
-- Core Feature: Constrained Ticket Status Q&A
-  Read-only, single-turn status, assignee, priority, and product questions
-  about one explicitly identified ticket. Answer from current caller-visible
-  data and identify the source ticket. The complete experience includes an
-  accessible interaction in the existing application to submit the ticket ID
-  and question and view an answer/source or a clear fallback.
-- Optional Feature: Conversational Queue Insights
-  Constrained counts by status, filtered lists, unassigned counts, product
-  comparisons, and status summaries. Application logic performs calculations;
-  empty results receive a clear response.
+- Epic: Comfortable Support Desk Experience
+- Feature: Accessible Dark Mode
+  Users can switch the existing application between light and dark themes
+  and retain their choice when returning in the same browser.
 
-For both Features:
-- Use synthetic data only. Preserve existing role and data-access boundaries.
-- Keep requests stateless; no conversation history, ticket mutations,
-  assignment, status changes, arbitrary queries, or automatic resolution.
-- Application logic retrieves facts; the model must not invent them.
-- Treat questions and ticket text as untrusted data, not instructions.
-- Provide clear fallbacks for unsupported, ambiguous, malformed, unknown-ticket,
-  and unavailable-AI cases. Do not log ticket content, questions, prompts, or
-  model responses.
-- Use only Part 1's existing Foundry resource, support-sim-project, and
-  gpt-5.4-mini. No provisioning work. Record runtime connection, managed-identity
-  least-privilege access, usage limits, and monitoring as dependencies where
-  unresolved; do not invent thresholds. No keys or connection strings.
+Feature requirements:
+- With no valid saved preference, use the existing light appearance. Provide
+  a clearly labeled, keyboard-operable light/dark control that communicates
+  the current selection to assistive technology.
+- Switching themes updates the current view without a reload or loss of
+  filters, selected ticket, draft form values, or other in-progress work.
+  The choice remains active across the application's existing views.
+- Cover the ticket queue/detail, ticket creation, knowledge library, shared
+  navigation, demo banner, and existing empty, validation, notification, and
+  error states. Preserve readable text, visible focus, and recognizable
+  selected, hover, disabled, status, and priority states in both themes.
+- Meet WCAG AA contrast: at least 4.5:1 for normal text, 3:1 for large text,
+  and 3:1 for required control boundaries and state/focus indicators.
+  Do not rely on color alone to convey meaning.
+- Remember only the light/dark preference in browser-local storage. Restore
+  it after reload or a later visit in the same browser. Treat stored values
+  as untrusted; missing or invalid values use light mode.
+- If browser storage is unavailable, theme switching still works for the
+  current interactive session. Give non-blocking, accessible feedback that
+  the preference cannot be saved; do not claim it was saved.
+- Keep the preference isolated per browser, not in shared server state.
+  Preserve existing synthetic identities, role/data boundaries, application
+  workflows, responsive behavior, and API contracts.
 
-Propose the product-facing Stories needed to fulfill each Feature; do not force
+Scope exclusions:
+- No AI, Foundry/model integration, provisioning, RBAC changes, secrets,
+  new backend endpoints, database, or account-level preference service.
+- No system-theme detection, automatic scheduling, cross-device or live
+  cross-tab synchronization, custom palettes, or unrelated redesign.
+- Do not modify or reparent existing AI backlog items to repurpose them.
+  Leave unrelated work untouched and reuse only matching dark-mode items.
+
+Propose the product-facing Stories needed to fulfill this Feature; do not force
 a fixed count. Each Story must define a bounded, acceptable component of the
 experience with observable acceptance criteria, not the entire Feature or a
-backend/frontend/agent implementation layer.
-
-For the core Feature, make application interaction, grounded AI-assisted
-answers, source presentation, and safe fallback behavior explicit in the
-Feature criteria and covered by the Stories. Include labeled, keyboard-operable
-controls and explicit result/error feedback where relevant. Do not assume an
-API-only capability satisfies an application interaction requirement. Keep the
-model's role constrained: application logic retrieves facts; the model cannot
-invent ticket facts or take actions. Do not prescribe a hosted-agent architecture.
+CSS/component/storage implementation layer. Switching themes and remembering a
+choice are candidate Story boundaries, not a mandatory template.
 
 Derive measurable success indicators and observable acceptance criteria from
 these requirements. Show which Feature criteria each Story covers and check
@@ -239,16 +240,17 @@ Leave existing iteration values unchanged; do not assign new iteration paths.
 
 Review the proposal for product scope, testable criteria, and correct reuse
 of existing items. Check that each Story is an acceptable chunk of the Feature
-and that the Stories collectively cover its complete experience, including the
-core application's interaction and AI behavior. Story completion must not be
-treated as the point at which all implementation work is deployed. If it
+and that the Stories collectively cover switching themes, all existing views,
+accessibility, preference persistence, and storage-unavailable behavior.
+Story completion must not be treated as the point at which all implementation
+work is deployed. If it
 matches your intent, reply:
 
 ```text
 Approve the exact proposed operations.
 ```
 
-After execution, use the returned links to spot-check the Epic, both Features,
+After execution, use the returned links to spot-check the Epic, Feature,
 and their Stories. Every Feature must have the Epic as its parent; every Story
 must have one Feature parent. The agent's report must show read-back results,
 not just successful create commands.

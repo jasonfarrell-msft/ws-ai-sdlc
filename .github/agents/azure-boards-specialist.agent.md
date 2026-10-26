@@ -147,7 +147,7 @@ Require:
 - Dependencies and open questions
 - Enough detail for the team to discuss and estimate the work
 - The Feature criteria it contributes to, including observable application
-  interaction and AI behavior where relevant
+  interaction, accessibility, and preference behavior where relevant
 
 Review stories for independence, value, clarity, size, and testability. Split
 stories that combine unrelated outcomes, span multiple Sprints, or describe
@@ -178,8 +178,8 @@ Require:
 
 Do not use Tasks as substitutes for User Stories. Tasks explain how the team
 plans to deliver a Story; they do not replace its value or acceptance criteria.
-Assess backend, frontend, and agent/prompt work as candidate deployment units,
-not a mandatory template. Avoid fixed counts, routine substep Tasks, a single
+Assess only implementation areas relevant to the approved Feature as candidate
+deployment units, not a mandatory template. Avoid fixed counts, routine substep Tasks, a single
 oversized Task hiding distinct units, or a catch-all Task owning every safeguard.
 Define actual dependencies; test doubles do not prove live integration or
 eliminate deployment prerequisites.
@@ -189,11 +189,26 @@ criteria. If required scope is missing or unclear, identify the affected Story
 and return to backlog refinement for separate approval. Do not invent criteria
 while decomposing Tasks.
 
-For this workshop, use only existing Part 1 resources. Application-level
-agent/prompt work does not authorize hosted-agent provisioning, Foundry
-reconfiguration, infrastructure-enablement work, or Azure/RBAC changes.
-Treat unresolved runtime endpoint and managed-identity access as external
-demo-readiness dependencies, separate from code/test completion.
+For this workshop, plan Accessible Dark Mode: an accessible light/dark toggle
+with a browser-local remembered preference. Use light mode when no valid
+preference exists. Preserve in-progress work across theme changes and keep
+preferences isolated per browser, not in shared server state. When storage is
+unavailable, switching still works for the current interactive session and
+accessible, non-blocking feedback explains that saving failed.
+
+Assess theme styling, accessible controls, and browser persistence as candidate
+units; do not invent backend or AI Tasks to fill a template. Account for Blazor
+Interactive Server prerendering and browser interop availability. A small
+first-party JavaScript module may support persistence without Node.js or npm.
+Server-side tests and mocked storage do not prove actual browser behavior.
+
+No application AI integration, Foundry model access, provisioning,
+infrastructure changes, or Azure RBAC changes are required. Do not block
+planning on Foundry availability.
+Exclude system-theme detection, cross-device or live cross-tab synchronization,
+custom palettes, and unrelated redesign. Leave existing AI backlog items
+untouched; reuse only matching dark-mode items. Derive exact criteria from
+Part 4's approved requirements, not new assumptions.
 
 ## Execution and recovery
 

@@ -24,16 +24,15 @@ in each Task; there is no separate instruction-update exercise.
 - Complete the Azure Boards GitHub integration from
   [Part 3](03-azure-devops-setup.md), including any required application
   permission approval.
-- Reuse the saved Part 1 confirmation for the existing Foundry resource,
-  `support-sim-project`, `gpt-5.4-mini`, and the deployed nonsecret runtime
-  endpoint setting. The App Service identity has least-privilege model access.
+- Use the existing application and deployment workflow from Parts 1 and 2.
+  The dark-mode application feature requires no AI integration, Foundry model
+  access, or new infrastructure. Copilot access is still needed for the coding
+  agent used to implement it.
 
 > [!NOTE]
-> Part 1 provisions the Foundry resource, model, runtime role assignment, and
-> nonsecret endpoint setting. The deployment stack's `foundryEndpoint` output
-> is the source of truth; do not hardcode an environment-specific account name.
-> The GitHub Actions identity remains limited to deploying the Web App. Do not
-> expand its Azure access or add Foundry provisioning to the workflow.
+> Foundry resources provisioned by Part 1 are not used in this exercise.
+> Leave infrastructure and Azure RBAC unchanged. The GitHub Actions identity
+> remains limited to deploying the Web App; do not expand its Azure access.
 
 ## 1. Choose Tasks and check their order
 
@@ -47,24 +46,25 @@ completed. Work through your Tasks in ascending Task ID order, reviewing and
 merging each PR before starting the next. Check the recorded prerequisites
 first; if they conflict with numerical order, follow the prerequisites.
 
-In this example, Part 5 produced **three Tasks**; your backlog may have a
-different number:
+For example, Part 5 might produce **two Tasks**; use the actual approved split
+and parent Story IDs, not this table as a required template:
 
 | Order | Implementation unit | When to start |
 | --- | --- | --- |
-| First | Backend contracts, current-ticket retrieval, and grounded answers | Start here. |
-| Second | Foundry question interpretation and model adapter | After the first Task's PR is reviewed and merged. |
-| Third | Accessible question input, answer/source, and fallback UI | After the second Task's PR is reviewed and merged. |
+| First | Theme-aware styling and an accessible light/dark control | Start here; preserve light mode and keep the active choice across views. |
+| Second | Browser-local preference persistence and storage-failure feedback | After the first Task's PR is reviewed and merged, if it supplies the shared theme contract. |
 
 Use the Task IDs returned by Part 5 and include all Tasks selected for this
-handoff. Both the adapter and UI in this example depend on the backend contract; the
-sequential walkthrough also keeps review and integration simple. As with a
-human team, prerequisite relationships determine what can start next;
-numerical order is only a convenient walkthrough assumption.
+handoff. In this example, switching works before persistence is added, and the
+persistence Task builds on the shared theme contract. Each Task must still
+contribute only to its own parent Story's approved criteria. Combine or split
+these units differently if the actual Stories require it. The sequential
+walkthrough keeps review and integration simple; actual prerequisites take
+precedence over numerical order.
 
 ## 2. Do the work: send each Task to Copilot
 
-1. Start with the **lowest Task ID** in the verified order from Section 1.
+1. Start with the **first unblocked Task** in the verified order from Section 1.
    Open that **Task** in Azure Boards, not its parent Story or Feature.
    Check that its saved description includes the approved scope,
    completion evidence, safeguards, and dependencies.
@@ -131,9 +131,9 @@ creating a duplicate Task.
 
 Merging the prerequisite makes its code available to dependent agents;
 deployment is a separate concern. Each Task must retain its approved safe
-deployment behavior. The UI can show unavailable-AI feedback before the model
-adapter or runtime access is ready. A code merge or passing tests do not
-establish live Foundry access.
+deployment behavior. For the example above, theme switching works before
+persistence is deployed. A code merge or passing server-side tests do not
+prove actual browser persistence, contrast, or keyboard accessibility.
 
 ## 4. Verify the combined result
 
@@ -141,18 +141,29 @@ establish live Foundry access.
 - Confirm every selected Task is Closed and each corresponding post-merge
   Actions deployment succeeded. Automatic Task closure occurs on merge; it
   does not wait for deployment or prove that deployment succeeded.
-- Verify the combined status/assignee interaction, exact source ticket ID,
-  and clear fallbacks against the selected Stories' existing criteria.
-- Keep code/test evidence separate from live runtime evidence. Endpoint
-  configuration and least-privilege managed-identity access must be confirmed
-  by the responsible owner before live AI use; the coding agent must not
-  provision Foundry or change Azure RBAC to remove those blockers.
+- In a browser with no saved preference, confirm the existing light appearance.
+  Use the labeled toggle with the keyboard and confirm that assistive
+  technology can identify the selected theme.
+- Switch both ways without reloading. Check the queue/detail, ticket creation,
+  knowledge library, navigation, demo banner, and representative empty,
+  validation, notification, and error states. Check text/control contrast,
+  visible focus, hover/selected/disabled states, and responsive layouts against
+  the approved criteria. Verify existing ticket and knowledge workflows in
+  both themes, with filters, selection, and draft input preserved on switching.
+- Reload and revisit in the same browser; confirm the selected theme is
+  restored. Verify an invalid stored value falls back to light mode. With
+  browser storage blocked, confirm switching still works for the current
+  interactive session and accessible feedback explains that saving failed.
+  Use a separate browser profile to verify preferences do not leak between
+  users. Do not mistake demo identity changes for separate browser storage.
+- Keep automated code/test evidence separate from actual browser evidence.
+  Server-side rendering or mocked storage alone does not prove the combined
+  experience. Do not add AI services or change infrastructure to finish it.
 - Leave iteration paths unchanged. Use the team's existing completion
   process; a PR, merge, or deployment alone does not make a Story Done.
 
 ## Public documentation used for validation
 
-- [Deploy a Foundry resource by using Bicep](https://learn.microsoft.com/azure/foundry/how-to/create-resource-template)
 - [Integrate Copilot cloud agent with Azure Boards](https://docs.github.com/copilot/how-tos/copilot-integrations/integrate-cloud-agent-with-azure-boards)
 - [Configure OpenID Connect in Azure](https://docs.github.com/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure)
 - [GitHub Actions workflow syntax](https://docs.github.com/actions/reference/workflows-and-actions/workflow-syntax)

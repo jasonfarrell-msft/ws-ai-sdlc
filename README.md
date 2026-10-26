@@ -28,8 +28,11 @@ published by the .NET SDK and is not downloaded from npm.
 
 The application intentionally has **no AI integration**. Part 1 provisions a
 Microsoft Foundry resource, the `support-sim-project` project, and a GPT-5.4-mini
-model deployment for later use. The workshop files under [docs/](docs/) guide
-participants through planning the AI Grounded Response Assistant.
+model deployment, but these resources are not used by the current feature
+exercise. The workshop files under [docs/](docs/) guide participants through
+planning and delivering an accessible dark-mode toggle with a browser-saved
+preference. Dark mode is an exercise, not an included baseline capability;
+it needs no AI integration or new infrastructure.
 
 ## Architecture
 
