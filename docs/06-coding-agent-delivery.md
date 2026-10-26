@@ -17,8 +17,9 @@ in each Task; there is no separate instruction-update exercise.
 
 ## Prerequisites
 
-- Complete [Part 5](05-sprint-planning.md). Keep the selected Story and Task
-  IDs, and confirm every Task has its intended Story as its parent.
+- Complete [Part 5](05-sprint-planning.md) with the tasking specialist. Keep
+  the selected Story and Task IDs, and confirm every Task has its intended
+  Story as its parent.
 - Have a paid GitHub Copilot plan and access to the connected GitHub
   repository, with Copilot coding agent enabled.
 - Complete the Azure Boards GitHub integration from
@@ -50,12 +51,14 @@ and parent Story IDs, not this table as a required template:
 
 | Order | Implementation unit | When to start |
 | --- | --- | --- |
-| First | Theme-aware styling and an accessible light/dark control | Start here; preserve light mode and keep the active choice across views. |
-| Second | Browser-local preference persistence and storage-failure feedback | After the first Task's PR is reviewed and merged, if it supplies the shared theme contract. |
+| First | Complete the theme-switching Story end to end, including styling, accessible controls, tests, and documentation | Start here; preserve light mode and keep the active choice across views. |
+| Second | Complete the remembered-preference Story end to end, including persistence, failure feedback, tests, and documentation | After the first Task's PR is reviewed and merged, if it supplies the shared theme contract. |
 
 Use the Task IDs returned by Part 5 and include all Tasks selected for this
-handoff. In this example, switching works before persistence is added, and the
-persistence Task builds on the shared theme contract. Each Task must still
+handoff. This example assumes those two approved Stories exist; it is not a
+request to split or rewrite an existing Story to fit the table. In this case,
+switching works before persistence is added, and the persistence Task builds
+on the shared theme contract. Each Task must still
 contribute only to its own parent Story's approved criteria. Combine or split
 these units differently if the actual Stories require it. The sequential
 walkthrough keeps review and integration simple; actual prerequisites take

@@ -1,131 +1,85 @@
-# Part 5: Prepare Backlog Tasks
+# Part 5: Sprint Planning and Tasking
 
-Turn selected User Stories into Tasks that a coding agent can implement and
-deploy separately. This part prepares and verifies the backlog; it does not
-configure a Sprint, deploy the application, or create a working feature.
+Use a tasking specialist to turn selected work into implementation-ready Tasks.
+The Azure Boards specialist from Part 4 owns product scope and Story refinement;
+the tasking specialist owns the implementation breakdown.
+
+This is the tasking portion of Sprint Planning, after the team selects work.
+It does not choose a Sprint Goal, estimate capacity, configure a Sprint, or
+assign iteration paths. Leave existing iteration values unchanged.
 
 ## Before you start
 
-- Complete [Part 4](04-backlog-planning.md). Keep the Azure Boards specialist
-  selected in Copilot Chat.
-- Keep the approved Feature and Story IDs from Part 4.
-- Dark mode uses the existing application and deployment workflow without
+- Complete [Part 4](04-backlog-planning.md) and keep the verified Feature and
+  Story IDs.
+- Decide the scope: selected User Stories, or every Story under one Feature.
+  For this walkthrough, target the **Accessible Dark Mode Feature**. Leave
+  Accessible Ticket Creation and other Features in the product backlog.
+- Use the existing application and deployment workflow; dark mode needs no
   additional services.
 
-## 1. Prepare the Task proposal
+## 1. Open the tasking specialist
 
-Ask the **azure-boards-specialist** to draft Tasks for the existing Stories.
-Submit this prompt in Copilot Chat:
+Review
+[`.github/agents/tasking-specialist.agent.md`](../.github/agents/tasking-specialist.agent.md)
+and select **tasking-specialist** in Copilot Chat. If it does not appear,
+reload VS Code.
+
+This agent assumes an AI coding agent will implement each Task end to end.
+It prefers a cohesive Task for a Story's remaining implementation, including
+all relevant layers, tests, safeguards, and documentation. It does not create
+separate Tasks for routine human-sized activities such as styling, coding,
+testing, or documentation.
+
+Broader Tasks do not mean broader Stories or unlimited agent capacity.
+The specialist splits work only for a concrete dependency, independent
+deployment, risk boundary, or reviewability reason. Every Task still has
+exactly one Story parent. Keeping related work together reduces repeated
+handoffs and discovery, but does not guarantee a particular token saving.
+
+## 2. Request the Tasks
+
+Replace `<FEATURE_ID>` with the actual dark-mode Feature ID from Part 4:
 
 ```text
-Prepare backlog Tasks for the Support Desk Simulator using your profile.
-Do not write to Azure Boards until I approve the exact proposal.
-
-Verify CLI defaults, the configured organization and project, Agile process,
-and authenticated Boards identity. Inspect the repository, the existing
-Accessible Dark Mode Feature, its child Stories, and matching Tasks across
-the project. Read each Story's acceptance criteria from its description or
-dedicated field. Reuse matching items, including unparented Tasks from
-interrupted runs. Inspect existing Blazor components, theme variables,
-hardcoded colors, and relevant tests. Do not provision services or change
-infrastructure, runtime settings, or Azure RBAC.
-
-Select the existing product-facing Stories needed for the complete dark-mode
-demo: accessible switching across existing views, preservation of in-progress
-work, saved preferences restored after reload, invalid stored values, and
-storage-unavailable feedback. Explain how their current criteria cover the
-demo. Reuse Stories unchanged. If scope is missing or unclear, identify the
-Story and missing scope, then stop Task drafting for it and return to Part 4
-for separately approved refinement. Do not invent criteria, add Stories, or
-change existing criteria. Leave unrelated Stories and AI backlog items untouched.
-
-Draft only the Tasks needed for distinct, coding-agent-sized units of
-implementation and deployment. Do not force a fixed Task count. Assess theme
-styling, accessible controls, and browser-preference persistence as candidate
-units; explain combinations or omissions. Reuse existing Blazor and CSS
-patterns, including theme variables and hardcoded colors that need theme-aware
-equivalents. Keep light mode intact. No backend/API or agent/prompt unit is
-needed merely to fill a template.
-
-Define ownership of shared theme state, theme application, and preference
-read/write contracts. Account for Blazor Interactive Server prerendering and
-browser interop availability. Keep each browser's theme isolated; do not put
-a mutable preference in a singleton shared across users. Prefer existing .NET
-and browser capabilities. If persistence needs a small first-party JavaScript
-module, include its ownership and tests in the appropriate Task; no Node.js,
-npm, or frontend package pipeline is required.
-
-Each Task must have one existing parent Story and include:
-- Action-oriented title, bounded scope, and repository areas likely to change.
-- Tangible deployable result, interface ownership, integration points, and
-  safe behavior while related work is incomplete.
-- Completion evidence tied to the parent's existing criteria.
-- Automated tests for success, fallback/error, and compatibility behavior,
-  without Azure access or secrets. Check theme selection and preference logic.
-- Browser evidence for persistence, keyboard operation, contrast, responsive
-  layouts, and representative UI states in both themes where relevant.
-- Relevant security, privacy, reliability, and accessibility requirements.
-- Actual prerequisite Task IDs and execution order.
-
-Give every behavior a clear owner. Include relevant safeguards, tests, and
-documentation in each Task. Keep scopes non-overlapping; do not create routine
-substep Tasks, a catch-all safeguards Task, or artificial dependencies.
-Use explicit contracts and test doubles where useful. Do not defer deployment
-until Story completion. Server-side tests and mocked storage alone do not
-prove actual browser behavior.
-
-Preserve these constraints in every Task:
-- Theme changes must not reload the application, reset filters or selection,
-  discard draft input, change ticket data, or alter existing role boundaries.
-- Preserve light-mode behavior and theme coverage across all views and their
-  interactive, validation, empty, notification, and error states.
-- Maintain the parent's keyboard, assistive-technology, and contrast criteria.
-- Store only a validated light/dark preference locally in the browser; no
-  ticket content, demo identity, credentials, or account-level settings.
-- Missing or invalid preferences use light mode. When storage is unavailable,
-  retain interactive-session switching and show accessible, non-blocking
-  feedback that saving failed. Do not silently claim persistence.
-- No AI integration, new API endpoints, database, provisioning, RBAC changes,
-  secrets, or unrelated redesign. Do not add system-theme detection or sync.
-
-Present the verified scope and identity, Feature, selected Stories, and Task
-drafts in parent-to-child order. Explain the demo outcome, exclusions, and
-Task boundaries. Map each Task to its parent's existing criteria and verify
-that the Tasks collectively fulfill each selected Story. Show styling,
-control, and preference ownership and how each Task can be deployed safely.
-State shared constraints once and make inheritance explicit. List assumptions,
-open questions, dependencies, and execution order separately.
-
-Identify existing Tasks to reuse. Specify exact create, field-update, and
-Parent-link operations. Propose new Task creation in execution order, with
-prerequisites first; independent Tasks may be ordered either way. Reused Tasks
-may have older IDs, so actual prerequisites take precedence over numeric order.
-Keep each approved Story parent even when creation order crosses Stories.
-Record prerequisite IDs in Task descriptions; do not add dependency links.
-Each Task must have exactly one selected Story parent. Do not repeat entire
-Story descriptions in the proposal.
-
-Do not change Story criteria, estimates, capacity, policy, or Definition of
-Done. Do not inspect or configure iterations, Sprint dates, or settings; do not
-assign iteration paths. Read current iteration fields to verify they remain
-unchanged and new Tasks use the default root backlog path.
-
-Ask one explicit approval question. After approval, create or update only the
-approved Tasks and Parent links. Replace draft prerequisite labels with actual
-Task IDs. Use your duplicate-prevention, ID-recording, read-back, and
-failure/resume rules. Read every affected item back and report ID, title, type,
-state, parent, current iteration, URL, dependencies, and verification. Stop
-on a real failure or uncertain create; do not retry uncertain creates or
-create replacements.
+Prepare implementation Tasks for every User Story under Feature AB#<FEATURE_ID>.
+An AI coding agent will handle each Task end to end.
 ```
 
-## 2. Review and approve
+If the team has already selected individual Stories instead, use their actual
+IDs rather than the Feature-wide request:
 
-Check that the selected Stories cover the demo and each Task has a bounded
-scope, deployable result, completion evidence, tests, and actual dependencies.
-Confirm that styling, controls, and browser-preference work are accounted for,
-and that completing the Tasks would fulfill each selected Story. Browser
-checks must be visible, not assumed satisfied by server-side tests or doubles.
+```text
+Prepare implementation Tasks for User Stories AB#<STORY_ID_1> and AB#<STORY_ID_2>.
+An AI coding agent will handle each Task end to end.
+```
+
+Adjust the list to match the selected Stories; there is no required count.
+Use one request or the other, not both for the same work.
+
+The specialist reads the approved criteria, repository, and existing Tasks,
+then proposes the breakdown. Feature input accounts for every child Story,
+not a smaller agent-selected subset. Completed or already-covered work is
+reported with evidence rather than recreated. Unclear or missing Story scope
+goes back to the Boards specialist for separately approved refinement.
+
+## 3. Review and approve
+
+Check that the proposal:
+
+- Covers every targeted Story and maps its criteria to existing work or
+  proposed Tasks, with any blocked work explicit.
+- Uses cohesive, end-to-end scopes suitable for coding-agent delivery, with
+  a reason for each split and no arbitrary layer-based or routine substep Tasks.
+- Gives every Task one correct Story parent, a deployable result, completion
+  evidence, safeguards, relevant tests, and related documentation.
+- Preserves existing behavior and defines actual prerequisites and safe
+  integration with work that is not yet deployed.
+- Shows exact proposed writes and reused items without changing Story
+  criteria, assigning iterations, or modifying unrelated work.
+
+Browser-dependent acceptance needs browser evidence; server-side tests and
+mocks alone do not establish persistence or accessibility.
 
 If the proposal is correct, reply:
 
@@ -133,30 +87,25 @@ If the proposal is correct, reply:
 Approve the exact proposed operations.
 ```
 
-The specialist creates or updates only the approved Tasks and links. This
-approval does not assign Tasks to a Sprint or iteration.
+The specialist creates or updates only the approved Tasks and Parent links.
+This approval does not authorize Story refinement, Sprint assignment, coding,
+or starting a coding agent.
 
-## 3. Verify the backlog
+## 4. Verify and hand off
 
-Use the returned links to check that:
+Use the returned links to check the Task scopes, Story parents, criteria
+coverage, and actual prerequisite IDs. Confirm unchanged iteration values and
+default root backlog placement for new Tasks. The specialist must report
+read-back verification, not just successful write commands.
 
-- Each Task has the approved scope and exactly one selected Story parent.
-- Descriptions include completion evidence and actual prerequisite Task IDs.
-- New Tasks were created in the approved order. If reused IDs do not follow
-  execution order, the reported handoff sequence respects prerequisites.
-- Each Task has a deployable result and safe behavior while related work is
-  incomplete. A Task deployment does not mean its Story is complete.
-- Existing iteration values are unchanged; new Tasks use the default root
-  backlog path.
-- Unselected Stories were not changed, and no provisioning work was added.
+For the sequential walkthrough in Part 6, new Tasks are created in execution
+order with prerequisites first. Existing IDs may not follow that order; use
+recorded prerequisites rather than recreating items to obtain numerical order.
+Each Task must be safely deployable; deployment does not wait for the whole
+Story, and a Task deployment does not automatically make its Story Done.
 
-The specialist must read all affected items back. Harmless HTML whitespace or
-entity normalization is acceptable; missing content or incorrect links are
-not. If work stops after a real failure, retain the reported IDs and request
-a resume only after resolving the blocker. Do not rerun creation or replace
-partial items.
+If execution fails, retain the reported IDs. Resolve the blocker and request a
+resume using those items; do not rerun creation or replace partial items.
 
-Keep the selected Story and Task IDs and execution order for
-[Part 6: Coding Agent Delivery](06-coding-agent-delivery.md). Implementation,
-deployment, and actual browser behavior still need verification before the
-demo is complete.
+Keep the selected Story and Task IDs and verified handoff order for
+[Part 6: Coding Agent Delivery](06-coding-agent-delivery.md).

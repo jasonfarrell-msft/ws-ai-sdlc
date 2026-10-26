@@ -124,4 +124,5 @@ instead of inventing implementation work.
 Keep this second Feature in the product backlog. Parts 5-6 continue with only
 the dark-mode Feature and its Stories so the walkthrough stays time-boxed.
 
-Continue to [Part 5: Backlog Task Preparation](05-sprint-planning.md).
+Continue to [Part 5: Sprint Planning and Tasking](05-sprint-planning.md), where
+the tasking specialist turns the selected Stories or Feature into Tasks.
