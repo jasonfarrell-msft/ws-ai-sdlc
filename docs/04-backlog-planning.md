@@ -1,14 +1,17 @@
 # Part 4: Plan the Product Backlog
 
-Use the Azure Boards specialist included in the repository to propose the
-product backlog. Review and approve its proposal before it creates or updates
-work items. This part creates no Tasks or Sprints.
+Describe the change you want to add to the application. The Azure Boards
+specialist proposes the breakdown, reusing suitable Epics and Features,
+creating missing items, and adding or refining Stories where needed.
+Review and approve its proposal before it creates or updates work items.
+This part creates no Tasks or Sprints.
 
 ## Before you start
 
 - Complete [Part 3](03-azure-devops-setup.md) and open your fork in VS Code.
-- This exercise introduces dark mode to the existing application. It requires
-  no additional service. Do not change infrastructure for this exercise.
+- This exercise plans dark mode and a second accessibility Feature under one
+  Epic. Neither requires an additional service. Do not change infrastructure.
+  Only dark mode continues into the implementation exercise in Parts 5-6.
 
 ## 1. Open the Azure Boards specialist
 
@@ -19,71 +22,40 @@ recommended) and review it. Select **azure-boards-specialist** in Copilot Chat.
 
 ## 2. Draft the product backlog
 
-Submit this prompt to the azure-boards-specialist agent:
+Provide the feature, its value, and the behavior you expect. The specialist's
+profile already defines the hierarchy, decomposition rules, approval process,
+and verification steps; you do not need to repeat them in each request.
+
+Submit this feature brief to the azure-boards-specialist agent:
 
 ```text
-Prepare the Support Desk Simulator product backlog using your profile.
-Inspect the repository and Azure Boards. Verify the configured organization,
-project, Agile process, and authenticated Boards identity. Reuse existing
-matching items; do not create duplicates. Do not write anything until I approve
-the exact proposal.
+Umbrella outcome: A comfortable, accessible support-desk experience.
 
-Propose this hierarchy:
-- Epic: Comfortable Support Desk Experience
-- Feature: Accessible Dark Mode
-  Users can switch the existing application between light and dark themes
-  and retain their choice when returning in the same browser.
+Feature: Accessible Dark Mode
+I want to add light/dark theme switching to the Support Desk Simulator.
 
-Feature requirements:
-- With no valid saved preference, use the existing light appearance. Provide
-  a clearly labeled, keyboard-operable light/dark control that communicates
-  the current selection to assistive technology.
-- Switching themes updates the current view without a reload or loss of
-  filters, selected ticket, draft form values, or other in-progress work.
-  The choice remains active across the application's existing views.
-- Cover the ticket queue/detail, ticket creation, knowledge library, shared
-  navigation, demo banner, and existing empty, validation, notification, and
-  error states. Preserve readable text, visible focus, and recognizable
-  selected, hover, disabled, status, and priority states in both themes.
-- Meet WCAG AA contrast: at least 4.5:1 for normal text, 3:1 for large text,
-  and 3:1 for required control boundaries and state/focus indicators.
-  Do not rely on color alone to convey meaning.
-- Remember only the light/dark preference in browser-local storage. Restore
-  it after reload or a later visit in the same browser. Treat stored values
-  as untrusted; missing or invalid values use light mode.
-- If browser storage is unavailable, theme switching still works for the
-  current interactive session. Give non-blocking, accessible feedback that
-  the preference cannot be saved; do not claim it was saved.
-- Keep the preference isolated per browser, not in shared server state.
-  Preserve existing synthetic identities, role/data boundaries, application
-  workflows, responsive behavior, and API contracts.
+Value:
+Let users choose a comfortable appearance while continuing their existing
+support workflows without interruption.
 
-Scope exclusions:
-- No application AI integration, provisioning, RBAC changes, secrets,
-  new backend endpoints, database, or account-level preference service.
-- No system-theme detection, automatic scheduling, cross-device or live
-  cross-tab synchronization, custom palettes, or unrelated redesign.
-- Do not modify or reparent existing AI backlog items to repurpose them.
-  Leave unrelated work untouched and reuse only matching dark-mode items.
-
-Propose the product-facing Stories needed to fulfill this Feature. Do not
-assume a fixed Story count. Each Story must be a bounded, acceptable component
-with observable acceptance criteria, not a CSS/component/storage implementation
-layer. Switching themes and remembering a choice are candidate Story boundaries,
-not a mandatory template.
-
-Show how each Story covers Feature criteria and how all Stories together
-fulfill the Feature without gaps or duplicate scope. Derive measurable success
-indicators from these requirements. Do not invent requirements or rewrite
-existing approved criteria. No Tasks, implementation designs, estimates,
-assignments, or Sprint setup.
-
-List existing items to reuse and the exact create, field-update, and Parent-link
-operations. Keep assumptions, open questions, dependencies, and execution
-order brief. Ask for one explicit approval. After approval, perform only the
-approved operations, read each item and link back for verification, leave
-iteration values unchanged, and report IDs and URLs using your profile's
-verification rules.
+Expectations:
+- A labeled, keyboard-operable toggle exposes the selected theme to assistive
+  technology. Switching needs no reload and preserves filters, selected
+  tickets, and draft input across views.
+- Both themes cover the whole application, including navigation, ticket
+  queue/detail, creation, knowledge library, demo banner, and empty,
+  validation, notification, and error states. Preserve responsive layouts,
+  visible focus, and recognizable hover, selected, disabled, status, and
+  priority states; do not rely on color alone.
+- Meet WCAG AA contrast: 4.5:1 for normal text, 3:1 for large text and required
+  control boundaries and state/focus indicators.
+- Default to light when no valid preference exists. Remember only the theme
+  in the same browser across reloads and visits, isolated from other users.
+  If saving is unavailable, switching still works for the interactive session
+  with accessible, non-blocking feedback that the choice cannot be saved.
+- Preserve existing workflows, role/data boundaries, and API behavior.
+  Keep scope to switching and remembering light/dark: no automatic switching,
+  synchronization, custom palettes, account settings, redesign, or extra services.
 ```
 
 ## 3. Review and approve the proposal
@@ -97,11 +69,59 @@ behavior. If the proposal matches your intent, reply:
 Approve the exact proposed operations.
 ```
 
-After execution, use the returned links to verify that the Feature has the
-Epic as its parent and each Story has one Feature parent. Confirm the specialist
+After execution, use the returned links to verify that each affected Feature
+has one Epic parent and each Story has one Feature parent. Confirm the specialist
 read each item and link back, and that existing iteration values were not
-changed. Keep the item IDs for Part 5. If execution stops, resolve the reported
+changed. Keep the returned Epic ID for the next request and the dark-mode
+Feature and Story IDs for Part 5. If execution stops, resolve the reported
 problem and ask the specialist to resume with its recorded IDs; do not recreate
 items.
+
+## 4. Add a second Feature under the same Epic
+
+After the first proposal is approved and verified, describe another capability
+that contributes to the same outcome. Replace `<EPIC_ID>` below with the actual
+Epic ID returned by the first run; do not create a second Epic.
+
+The baseline already has form labels, validation messages, and status feedback.
+The specialist should inspect them and identify unmet expectations rather than
+assume they are missing. Keep accessibility work distinct from the theme
+contrast, toggle, and persistence work already covered by dark mode.
+
+```text
+Under existing Epic AB#<EPIC_ID>:
+
+Feature: Accessible Ticket Creation
+I want requesters using a keyboard or screen reader to create a support ticket
+and recover from input errors independently.
+
+Value:
+Make the requester workflow usable without a mouse or visual-only feedback,
+reducing barriers to asking for support.
+
+Expectations:
+- Open, complete, submit, and cancel ticket creation using only the keyboard,
+  with logical focus order, visible focus, and no keyboard traps.
+- Give every field an accessible name and expose required-field instructions
+  and invalid states to assistive technology.
+- On invalid submission, preserve entered values, make errors discoverable
+  through focus and screen-reader feedback, and associate each error with its
+  field so the requester can correct it and resubmit.
+- Communicate successful creation or submission failure accessibly without
+  requiring the requester to find a visual-only notification.
+- Build on existing accessibility behavior. Preserve ticket validation,
+  role/data boundaries, API behavior, and both supported theme appearances.
+  No dark-mode scope changes, application-wide accessibility audit, new
+  services, or redesign.
+```
+
+Review and approve this proposal separately using Section 3's approval step.
+Verify that the second Feature has the same Epic parent, its Stories describe
+unmet requester needs, and the dark-mode backlog remains unchanged. If these
+expectations are already satisfied, have the specialist report that evidence
+instead of inventing implementation work.
+
+Keep this second Feature in the product backlog. Parts 5-6 continue with only
+the dark-mode Feature and its Stories so the walkthrough stays time-boxed.
 
 Continue to [Part 5: Backlog Task Preparation](05-sprint-planning.md).

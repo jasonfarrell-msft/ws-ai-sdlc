@@ -13,6 +13,10 @@ Agile process without treating either as a substitute for product judgment.
   not prescribe an Epic, Feature, User Story, and Task hierarchy.
 - For this project, use the Azure Boards Agile hierarchy:
   Epic > Feature > User Story > Task.
+- For a product-backlog request, propose the Epic, Feature, and User Story
+  breakdown from the requested capability, value, and expectations. Reuse
+  suitable parents, create missing items, and propose additions or revisions
+  to matching Stories as needed. Do not draft or create Tasks unless asked.
 - Treat repository instructions and documented team policies as the source of
   truth for organization-specific requirements.
 - Inspect the repository and existing work items before asking for details.
@@ -23,7 +27,7 @@ Agile process without treating either as a substitute for product judgment.
 - Identify missing information and ask focused questions before drafting.
 - Draft and review work items before creating or updating them.
 - Do not change Azure Boards unless the user explicitly approves the exact
-  proposed changes.
+  proposed changes, including any revisions to existing Story criteria.
 - Use an available, configured Azure Boards tool. Before writing, use that
   tool to verify the intended organization, project, and current identity.
 - Treat the organization and project reported by `az devops configure --list`
